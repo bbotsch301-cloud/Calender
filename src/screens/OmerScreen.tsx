@@ -79,17 +79,14 @@ export function OmerScreen() {
     Alert.alert('Counted', `${getOmerBlessing(day!)}\n\n${getOmerWeekTheme(day!)}`);
   }
 
-  // streak: walk backwards from today
+  // Streak: consecutive counted days ending at today (inclusive).
   let streak = 0;
   for (let d = day; d >= 1; d--) {
     if (counted.has(d)) streak++;
     else break;
   }
-  if (counted.has(day)) {
-    // including today
-  }
 
-  const dateForOmerDay = (n: number) => addDays(window.start, n - 1);
+  const dateForOmerDay = (n: number): Date => addDays(window.start, n - 1);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.background }}>

@@ -18,7 +18,8 @@ export function AlignmentScore({
 }: Props) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const clamped = Math.max(0, Math.min(100, score));
+  const safe = Number.isFinite(score) ? score : 0;
+  const clamped = Math.max(0, Math.min(100, safe));
   const offset = circumference * (1 - clamped / 100);
 
   const color =

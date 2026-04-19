@@ -40,32 +40,64 @@ const WEIGHTS = {
 } as const;
 
 export function computeAlignmentScore(activities: Activity[]): AlignmentResult {
-  const sabbathsKept = activities.filter((a) => a.type === 'sabbath').length;
-  const feastsEngaged = activities.filter((a) => a.type === 'feast').length;
-  const checkIns = activities.filter((a) => a.type === 'checkin').length;
-  const scripturesRead = activities.filter((a) => a.type === 'scripture').length;
-  const fasts = activities.filter((a) => a.type === 'fast').length;
+  // Count of unique days (dedup) per type — a user can only keep one sabbath
+  // per Saturday, engage one feast day per date, check in once per date.
+  const countUniqueDays = (type: ActivityType): number => {
+    const set = new Set<string>();
+    for (const a of activities) {
+      if (a.type !== type) continue;
+      set.add(a.date.toISOString().split('T')[0]);
+    }
+    return set.size;
+  };
 
-  // Compute date range (most recent 90-day window)
+  const sabbathsKept = countUniqueDays('sabbath');
+  const feastsEngaged = countUniqueDays('feast');
+  const checkIns = countUniqueDays('checkin');
+  const scripturesRead = countUniqueDays('scripture');
+
+  // Compute date range (most recent 90-day window), deduped per calendar day.
   const now = Date.now();
   const ninetyDaysAgo = now - 90 * 86400000;
   const recent = activities.filter((a) => a.date.getTime() >= ninetyDaysAgo);
 
-  const recentSabbaths = recent.filter((a) => a.type === 'sabbath').length;
-  const recentFeasts = recent.filter((a) => a.type === 'feast').length;
-  const recentCheckIns = recent.filter((a) => a.type === 'checkin').length;
+  const recentDayKey = (type: ActivityType): Set<string> => {
+    const set = new Set<string>();
+    for (const a of recent) {
+      if (a.type !== type) continue;
+      set.add(a.date.toISOString().split('T')[0]);
+    }
+    return set;
+  };
 
-  // Max possible in 90 days: ~13 sabbaths, ~2 feasts, 90 checkins
-  const possibleSabbaths = 13;
-  const possibleFeasts = 2;
-  const possibleCheckIns = 90;
+  const recentSabbaths = recentDayKey('sabbath').size;
+  const recentFeasts = recentDayKey('feast').size;
+  const recentCheckIns = recentDayKey('checkin').size;
 
-  const sabbathScore = Math.min(recentSabbaths / possibleSabbaths, 1) * WEIGHTS.sabbath;
-  const feastScore = Math.min(recentFeasts / Math.max(possibleFeasts, 1), 1) * WEIGHTS.feast;
-  const checkinScore = Math.min(recentCheckIns / possibleCheckIns, 1) * WEIGHTS.checkin;
+  // Dynamic max-possible over the 90-day window.
+  //   ~12-13 Saturdays in any 90-day span, rounded down to be safe.
+  //   Feasts: count feasts that actually occurred in the window.
+  //   Check-ins: elapsed days since oldest activity, capped at 90.
+  const oldestTs = activities.length > 0
+    ? Math.min(...activities.map((a) => a.date.getTime()))
+    : now;
+  const elapsedDays = Math.max(
+    1,
+    Math.min(90, Math.ceil((now - Math.max(oldestTs, ninetyDaysAgo)) / 86400000))
+  );
+
+  const possibleSabbaths = Math.max(1, Math.floor(elapsedDays / 7));
+  const possibleFeasts = 2; // There are typically 1-2 feasts per 90-day window.
+  const possibleCheckIns = elapsedDays;
+
+  const sabbathScore = clamp01(recentSabbaths / possibleSabbaths) * WEIGHTS.sabbath;
+  const feastScore = clamp01(recentFeasts / possibleFeasts) * WEIGHTS.feast;
+  const checkinScore = clamp01(recentCheckIns / possibleCheckIns) * WEIGHTS.checkin;
 
   const rawScore = sabbathScore + feastScore + checkinScore;
-  const score = Math.round(Math.min(100, Math.max(0, rawScore)));
+  const score = Number.isFinite(rawScore)
+    ? Math.round(Math.min(100, Math.max(0, rawScore)))
+    : 0;
 
   return {
     score,
@@ -75,6 +107,11 @@ export function computeAlignmentScore(activities: Activity[]): AlignmentResult {
     checkIns,
     scripturesRead,
   };
+}
+
+function clamp01(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
 }
 
 export function computeStreak(activities: Activity[]): number {

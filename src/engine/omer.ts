@@ -1,10 +1,10 @@
 /**
  * Counting of the Omer.
  *
- * Per the spec:
- *  - Omer day 1 = the day after Firstfruits
- *  - Omer day 49 = the day before Pentecost
- *  - Pentecost itself is the 50th day (not counted as an Omer day)
+ * Biblical pattern (Leviticus 23:15-16):
+ *  - Day 1 = Firstfruits itself (the wave-sheaf day begins the count)
+ *  - Day 49 = Firstfruits + 48 days (day before Pentecost)
+ *  - Pentecost = "the morrow after the seventh sabbath" = day 50 = Firstfruits + 49 days
  *
  * Each of the 7 weeks has a Kabbalistic theme (one of the 7 lower sefirot),
  * and each day within a week pairs the week's sefira with the day's sefira,
@@ -31,8 +31,14 @@ interface OmerWindow {
 
 function getOmerWindowForYear(gregYear: number): OmerWindow {
   const feasts = computeFeastsForYear(gregYear);
-  const ff = feasts.find((f) => f.key === 'firstfruits')!;
-  const start = addDays(ff.startDate, 1);
+  const ff = feasts.find((f) => f.key === 'firstfruits');
+  if (!ff) {
+    // Should not happen, but fallback gracefully.
+    const today = new Date(gregYear, 0, 1);
+    return { start: today, end: addDays(today, 48) };
+  }
+  // Day 1 = Firstfruits itself; day 49 = Firstfruits + 48; day 50 (Pentecost) excluded.
+  const start = new Date(ff.startDate);
   const end = addDays(start, 48);
   return { start, end };
 }

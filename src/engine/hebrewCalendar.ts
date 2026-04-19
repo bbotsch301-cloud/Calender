@@ -169,6 +169,21 @@ function isShortKislev(year: number): boolean {
   return mod(daysInHebrewYear(year), 10) === 3;
 }
 
+/**
+ * Hebrew years come in three lengths. Cheshvan (usually 29) can have 30 days
+ * in a "complete" year; Kislev (usually 30) can have 29 in a "deficient" year.
+ *  - deficient (חסרה): Cheshvan 29, Kislev 29 → 353 / 383 days
+ *  - regular (כסדרה):  Cheshvan 29, Kislev 30 → 354 / 384 days
+ *  - complete (שלמה):  Cheshvan 30, Kislev 30 → 355 / 385 days
+ */
+export type HebrewYearType = 'deficient' | 'regular' | 'complete';
+
+export function getYearType(year: number): HebrewYearType {
+  if (isShortKislev(year)) return 'deficient';
+  if (isLongCheshvan(year)) return 'complete';
+  return 'regular';
+}
+
 export function hebrewToFixed(year: number, month: number, day: number): number {
   let date = hebrewNewYear(year) + day - 1;
   if (month < 7) {

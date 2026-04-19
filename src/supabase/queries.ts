@@ -33,6 +33,24 @@ export async function getCalendarDay(date: Date): Promise<{
   return { date, hebrewDate, isSabbath: sabbath, feast };
 }
 
+/**
+ * Duplicate-activity key: `sabbath`, `feast`, `checkin`, `scripture`, and
+ * `fast` are deduplicated per calendar day. `omer_count` is deduplicated
+ * per (date + notes) since the notes encode the day number. `feast` is
+ * additionally deduplicated by feast key so two feasts on the same day
+ * each count once.
+ */
+function dedupeKey(
+  type: ActivityType,
+  date: Date,
+  metadata?: { feastKey?: string; notes?: string }
+): string {
+  const dayKey = date.toISOString().split('T')[0];
+  if (type === 'feast') return `feast:${dayKey}:${metadata?.feastKey ?? ''}`;
+  if (type === 'omer_count') return `omer_count:${dayKey}:${metadata?.notes ?? ''}`;
+  return `${type}:${dayKey}`;
+}
+
 export async function logActivity(
   userId: string,
   type: ActivityType,
@@ -48,8 +66,26 @@ export async function logActivity(
     notes: metadata?.notes,
     createdAt: new Date(),
   };
+  const key = dedupeKey(type, date, metadata);
 
   if (isSupabaseConfigured && !userId.startsWith('guest-')) {
+    // Check for existing record for this dedupe key in the last 48h window.
+    const since = new Date(Date.now() - 2 * 86400000).toISOString();
+    const { data: existing, error: selErr } = await supabase
+      .from('user_activity')
+      .select('id, type, activity_date, feast_key, notes, created_at, user_id')
+      .eq('user_id', userId)
+      .eq('type', type)
+      .gte('activity_date', since);
+    if (selErr) throw selErr;
+    const match = (existing ?? []).find(
+      (r) => dedupeKey(r.type as ActivityType, new Date(r.activity_date as string), {
+        feastKey: (r.feast_key as string) ?? undefined,
+        notes: (r.notes as string) ?? undefined,
+      }) === key
+    );
+    if (match) return rowToActivity(match as Record<string, unknown>);
+
     const { error } = await supabase.from('user_activity').insert({
       id: log.id,
       user_id: userId,
@@ -62,8 +98,12 @@ export async function logActivity(
     return log;
   }
 
-  // Guest / local fallback
+  // Guest / local fallback — also deduped.
   const existing = await getLocalActivity();
+  const dupe = existing.find(
+    (e) => dedupeKey(e.type, new Date(e.date), { feastKey: e.feastKey, notes: e.notes }) === key
+  );
+  if (dupe) return dupe;
   existing.push(log);
   await AsyncStorage.setItem(ACTIVITY_KEY, JSON.stringify(existing));
   return log;

@@ -108,13 +108,18 @@ function equationOfTime(t: number): number {
   return toDeg(eTime) * 4;
 }
 
-function hourAngleSunset(lat: number, solarDec: number): number {
+/**
+ * Returns the sunset hour angle (in degrees) or null if the sun does not set
+ * at this latitude on this day (polar regions: midnight sun or polar night).
+ */
+function hourAngleSunset(lat: number, solarDec: number): number | null {
   const latRad = toRad(lat);
   const sdRad = toRad(solarDec);
   const haArg =
     Math.cos(toRad(ZENITH_OFFICIAL)) / (Math.cos(latRad) * Math.cos(sdRad)) -
     Math.tan(latRad) * Math.tan(sdRad);
-  return -toDeg(Math.acos(Math.min(1, Math.max(-1, haArg))));
+  if (haArg < -1 || haArg > 1) return null; // No sunset event today.
+  return -toDeg(Math.acos(haArg));
 }
 
 /**
@@ -132,13 +137,16 @@ export function calculateSunset(date: Date, lat: number, lon: number): Date {
   const solarDec = sunDeclination(t);
   const hourAngle = hourAngleSunset(lat, solarDec);
 
+  if (hourAngle === null) {
+    // Polar region — sun does not set today. Fallback: 18:00 local time at this longitude.
+    const fallbackUTCminutes = 18 * 60 - 4 * lon;
+    const result = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0));
+    result.setUTCSeconds(Math.round(fallbackUTCminutes * 60));
+    return result;
+  }
+
   // Sunset in UTC minutes from midnight
   const sunsetUTC = 720 - 4 * (lon + hourAngle) - eqTime;
-
-  if (!isFinite(sunsetUTC)) {
-    // Polar; default to 6pm local approx
-    return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 18, 0, 0));
-  }
 
   const totalSeconds = Math.round(sunsetUTC * 60);
   const result = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0));

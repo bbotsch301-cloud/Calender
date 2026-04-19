@@ -7,8 +7,13 @@
  * Reference epoch: 2000 January 6, 18:14 UTC — the new moon nearest J2000.
  */
 
-const SYNODIC_MONTH = 29.530588853;
-const REFERENCE_NEW_MOON_UTC = Date.UTC(2000, 0, 6, 18, 14, 0);
+// Mean synodic period of the Moon (new moon → new moon), in days.
+// Source: Meeus, "Astronomical Algorithms" — the widely-cited long-form value.
+const SYNODIC_MONTH = 29.53058770576;
+
+// Reference new moon: 2000 January 6, 14:24 UTC (Julian Date 2451550.1).
+// This matches the conventional lunation zero used in modern ephemerides.
+const REFERENCE_NEW_MOON_UTC = Date.UTC(2000, 0, 6, 14, 24, 0);
 
 export type MoonPhaseName =
   | 'New Moon'
