@@ -95,8 +95,8 @@ export function computeFeastsForYear(gregYear: number): Feast[] {
   // Firstfruits: Sunday after Passover week (wave sheaf)
   const firstfruitsDate = findFirstfruits(springYear);
 
-  // Pentecost: 50 days from Firstfruits (count 7 sabbaths + 1 day = 50 inclusive)
-  const pentecostDate = addDays(firstfruitsDate, 49);
+  // Pentecost: 50 days after Firstfruits (Omer days 1-49, Pentecost = day 50)
+  const pentecostDate = addDays(firstfruitsDate, 50);
 
   // Trumpets: 1 Tishri
   const trumpetsDate = hebrewToGregorian(fallYear, 7, 1);

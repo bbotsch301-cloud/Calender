@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import { DayCell } from './DayCell';
 import { Colors } from '../../constants/colors';
 import { gregorianToHebrew } from '../../engine/hebrewCalendar';
-import { isSabbath } from '../../engine/sabbath';
+import { isSabbath, isRoshChodesh } from '../../engine/sabbath';
 import type { CalendarDay } from '../../types/calendar.types';
 import type { Feast } from '../../engine/feasts';
 
@@ -55,6 +55,7 @@ export function CalendarGrid({ year, month, events = [], onDayPress, showHebrew 
         gregorianYear: d.getFullYear(),
         hebrewDate: hebrew,
         isSabbath: isSabbath(d),
+        isRoshChodesh: isRoshChodesh(d),
         isToday: cellTime === today.getTime(),
         isCurrentMonth: d.getMonth() === month,
         feastKey,

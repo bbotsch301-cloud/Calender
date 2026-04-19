@@ -74,6 +74,17 @@ export function DayCell({ day, onPress, showHebrew = true }: Props) {
             }}
           />
         )}
+        {day.isRoshChodesh && (
+          <Text
+            style={{
+              position: 'absolute',
+              top: -2,
+              right: -2,
+              fontSize: 12,
+            }}>
+            🌑
+          </Text>
+        )}
       </View>
     </Pressable>
   );

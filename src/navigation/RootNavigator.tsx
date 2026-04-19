@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/useAuthStore';
 import { useFeastStore } from '../store/useFeastStore';
 import { useAlignmentStore } from '../store/useAlignmentStore';
@@ -10,14 +11,22 @@ import { SignupScreen } from '../screens/auth/SignupScreen';
 import { TabNavigator } from './TabNavigator';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { DailyViewScreen } from '../screens/DailyViewScreen';
+import { OmerScreen } from '../screens/OmerScreen';
+import { OnboardingScreen1 } from '../screens/onboarding/OnboardingScreen1';
+import { OnboardingScreen2 } from '../screens/onboarding/OnboardingScreen2';
+import { OnboardingScreen3, ONBOARDING_KEY } from '../screens/onboarding/OnboardingScreen3';
 import { Colors } from '../constants/colors';
 
 export type RootStackParamList = {
+  Onboard1: undefined;
+  Onboard2: undefined;
+  Onboard3: undefined;
   Login: undefined;
   Signup: undefined;
   Main: undefined;
   EventDetail: { feastKey: string; year: number };
   DailyView: { dateISO: string };
+  Omer: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -39,19 +48,25 @@ export function RootNavigator() {
   const { user, initialize, initialized } = useAuthStore();
   const loadFeasts = useFeastStore((s) => s.loadFeasts);
   const setUserId = useAlignmentStore((s) => s.setUserId);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   useEffect(() => {
     initialize();
     loadFeasts();
+    AsyncStorage.getItem(ONBOARDING_KEY).then((v) => {
+      setHasSeenOnboarding(v === '1');
+      setOnboardingChecked(true);
+    });
   }, []);
 
   useEffect(() => {
     setUserId(user?.id ?? null);
   }, [user?.id]);
 
-  if (!initialized) {
+  if (!initialized || !onboardingChecked) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
         <ActivityIndicator color={Colors.gold} size="large" />
       </View>
     );
@@ -60,7 +75,15 @@ export function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
+        {!hasSeenOnboarding ? (
+          <>
+            <Stack.Screen name="Onboard1" component={OnboardingScreen1} />
+            <Stack.Screen name="Onboard2" component={OnboardingScreen2} />
+            <Stack.Screen name="Onboard3">
+              {() => <OnboardingScreen3 onComplete={() => setHasSeenOnboarding(true)} />}
+            </Stack.Screen>
+          </>
+        ) : user ? (
           <>
             <Stack.Screen name="Main" component={TabNavigator} />
             <Stack.Screen
@@ -71,6 +94,11 @@ export function RootNavigator() {
             <Stack.Screen
               name="DailyView"
               component={DailyViewScreen}
+              options={{ presentation: 'card', animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="Omer"
+              component={OmerScreen}
               options={{ presentation: 'card', animation: 'slide_from_right' }}
             />
           </>

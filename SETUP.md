@@ -36,10 +36,20 @@ Edit `.env`:
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
+
+# Optional — enables AI-augmented "Meaning of Today" via claude-haiku-4-5
+EXPO_PUBLIC_ANTHROPIC_API_KEY=
 ```
 
-> **Note:** If you skip this step, the app still works fully via guest mode
+> **Note:** If you skip Supabase, the app still works fully via guest mode
 > (everything is persisted locally with AsyncStorage).
+>
+> **Anthropic key (optional):** If `EXPO_PUBLIC_ANTHROPIC_API_KEY` is set,
+> the "Meaning of Today" card calls Claude Haiku 4.5 directly from the
+> client to generate a richer devotional reflection. **Without** the key,
+> the app uses an entirely offline curated text pool (no network call).
+> For production, route the Anthropic API call through your own server —
+> shipping the key in a public app exposes it.
 
 ## 3. (Optional) Run the Supabase migration
 
@@ -126,6 +136,43 @@ supabase/
 └── migrations/001_initial_schema.sql
 ```
 
+## Tier 1–2 features
+
+- **Real moon phase.** Pure-math Dershowitz-style synodic-month calculation
+  in `src/engine/moonPhase.ts` (no API). `MoonPhaseDisplay` shows the phase
+  on Home and DailyView; new moon days (Hebrew day 1) are flagged as
+  **Rosh Chodesh** in the calendar grid and on DailyView.
+- **3-screen onboarding.** `OnboardingScreen1`–`3` with animated previews;
+  AsyncStorage gate (`hasSeenOnboarding`) so it shows only once.
+- **Sunset-based day switching.** `useCurrentDay` watches every minute for
+  the biblical-day boundary and emits a `DayTransitionToast` (slide-in
+  banner with the new Hebrew date and any active feast). Does not fire on
+  first load.
+- **Location flow.** `useSunset` checks permission silently, falls back to
+  Jerusalem on denial. `LocationBanner` (dismissible, persisted) prompts
+  the user to grant permission. Store tracks `userLatitude`,
+  `userLongitude`, and `usingLocationFallback`.
+- **Meaning of Today.** Curated 2-3 sentence reflections per Hebrew month
+  (3+ variations selected by Hebrew day); feast-specific lines override on
+  active feasts; Omer & Shabbat handled. Optional AI augmentation via
+  Claude Haiku 4.5 if `EXPO_PUBLIC_ANTHROPIC_API_KEY` is set; otherwise
+  fully offline.
+- **Torah portion (Parasha).** All 54 portions in `src/constants/parasha.ts`,
+  with annual cycle starting from Simchat Torah (Tishrei 23). Doubled pairs
+  (Vayakhel/Pekudei, Tazria/Metzora, etc.) are handled in non-leap years.
+  `ParashaCard` on Home (every day) and DailyView (Sabbath only).
+- **Omer counter.** `src/engine/omer.ts` exports `isOmerSeason`,
+  `getOmerDay` (1–49 or null), `getOmerBlessing` (traditional formula),
+  and `getOmerWeekTheme` (Kabbalistic Sefirot pairing). Dedicated
+  `OmerScreen` with circular ring, blessing, week theme, streak, and
+  49-day grid. Tab appears only during Omer season; `OmerBadge` surfaces
+  on Home + DailyView.
+- **Year at a Glance.** `YearScreen` + `YearTimeline` show all 12 (or 13)
+  Hebrew months as horizontal rows: feast blocks colored per accent,
+  sabbath gold tick marks, Rosh Chodesh moon, "You Are Here" gold ring,
+  and an Omer gradient band between Firstfruits and Pentecost. Toggle
+  between This Year / Next Year. Legend at the bottom.
+
 ## Implementation notes
 
 - **Day starts at sunset.** `useCurrentDay` provides a live countdown to the
@@ -151,11 +198,14 @@ Spot-check 2024–2026:
 | Passover (14 Nisan) | Apr 22 | Apr 12 | Apr 1 |
 | Unleavened Bread (15–21 Nisan) | Apr 23–29 | Apr 13–19 | Apr 2–8 |
 | Firstfruits (Sun after) | Apr 28 | Apr 20 | Apr 5 |
-| Pentecost (+49 days) | Jun 16 | Jun 8 | May 24 |
+| Pentecost (Firstfruits + 50 days) | Jun 17 | Jun 9 | May 25 |
 | Trumpets (1 Tishri) | Oct 3 | Sep 23 | Sep 12 |
 | Atonement (10 Tishri) | Oct 12 | Oct 2 | Sep 21 |
 | Tabernacles (15–21 Tishri) | Oct 17–23 | Oct 7–13 | Sep 26 – Oct 2 |
 | Eighth Day (22 Tishri) | Oct 24 | Oct 14 | Oct 3 |
+
+The Omer count covers days 1–49 (the day after Firstfruits through the
+day before Pentecost), with Pentecost itself the 50th day.
 
 > Hebrew→Gregorian conversion follows the traditional rabbinic calendar
 > (with deḥiyyot postponements), so dates align with `hebcal.com` etc.

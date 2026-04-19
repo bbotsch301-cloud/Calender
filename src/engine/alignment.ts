@@ -8,7 +8,13 @@
  * Where maxPossible is the theoretical maximum given the date range.
  */
 
-export type ActivityType = 'sabbath' | 'feast' | 'checkin' | 'scripture' | 'fast';
+export type ActivityType =
+  | 'sabbath'
+  | 'feast'
+  | 'checkin'
+  | 'scripture'
+  | 'fast'
+  | 'omer_count';
 
 export interface Activity {
   type: ActivityType;

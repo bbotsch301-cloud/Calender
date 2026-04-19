@@ -84,7 +84,10 @@ CREATE TABLE IF NOT EXISTS public.calendar_days (
   hebrew_day integer NOT NULL,
   hebrew_month_name text NOT NULL,
   is_sabbath boolean NOT NULL,
+  is_rosh_chodesh boolean NOT NULL DEFAULT false,
   feast_key text,
+  parasha_name text,
+  omer_day integer,
   notes text
 );
 
@@ -103,7 +106,7 @@ CREATE POLICY "calendar_days_select_all" ON public.calendar_days
 CREATE TABLE IF NOT EXISTS public.user_activity (
   id text PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
-  type text NOT NULL CHECK (type IN ('sabbath', 'feast', 'checkin', 'scripture', 'fast')),
+  type text NOT NULL CHECK (type IN ('sabbath', 'feast', 'checkin', 'scripture', 'fast', 'omer_count')),
   activity_date timestamptz NOT NULL,
   feast_key text,
   notes text,

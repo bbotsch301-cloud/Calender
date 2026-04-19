@@ -11,6 +11,12 @@ import { useCalendarStore } from '../store/useCalendarStore';
 import { GoldText } from '../components/ui/GoldText';
 import { DarkCard } from '../components/ui/DarkCard';
 import { SabbathBadge } from '../components/shared/SabbathBadge';
+import { MoonPhaseDisplay } from '../components/shared/MoonPhaseDisplay';
+import { isRoshChodesh } from '../engine/sabbath';
+import { MeaningOfToday } from '../components/shared/MeaningOfToday';
+import { ParashaCard } from '../components/shared/ParashaCard';
+import { OmerBadge } from '../components/shared/OmerBadge';
+import { isOmerSeason, getOmerDay } from '../engine/omer';
 import { useAlignment } from '../hooks/useAlignment';
 import { getScriptureForDay } from '../constants/scriptures';
 import type { RootStackParamList } from '../navigation/RootNavigator';
@@ -90,11 +96,31 @@ export function DailyViewScreen() {
               · {formatHebrewDate(hebrew, { hebrew: true })}
             </Text>
           </View>
-          {sabbath && (
-            <View style={{ marginTop: 14 }}>
-              <SabbathBadge />
-            </View>
-          )}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14, alignItems: 'center' }}>
+            {sabbath && <SabbathBadge />}
+            {isRoshChodesh(date) && (
+              <View
+                style={{
+                  alignSelf: 'flex-start',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: Colors.gold,
+                  backgroundColor: 'rgba(201,168,76,0.08)',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                }}>
+                <Text style={{ fontSize: 12 }}>🌑</Text>
+                <Text style={{ color: Colors.gold, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                  Rosh Chodesh
+                </Text>
+              </View>
+            )}
+            <MoonPhaseDisplay date={date} compact />
+            <OmerBadge date={date} compact />
+          </View>
         </View>
 
         {/* Active feast */}
@@ -154,23 +180,20 @@ export function DailyViewScreen() {
 
         {/* Meaning of Today */}
         <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
-          <GoldText
-            size="sm"
-            weight="bold"
-            style={{ marginBottom: 8, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-            Meaning of Today
-          </GoldText>
-          <DarkCard>
-            <Text style={{ color: Colors.text, fontSize: 14, lineHeight: 22 }}>
-              We dwell in the {hebrew.monthName} season — month {hebrew.month} of the Hebrew year.{' '}
-              {sabbath
-                ? 'It is a Sabbath day; rest, remember the Creator, and dwell in His shalom.'
-                : feast
-                ? `The appointed time of ${feast.name} is upon us. Walk in its meaning.`
-                : 'A day to walk uprightly and to remember the Lord in your steps.'}
-            </Text>
-          </DarkCard>
+          <MeaningOfToday
+            hebrewDate={hebrew}
+            activeFeast={feast}
+            isOmerSeason={isOmerSeason(date)}
+            omerDay={getOmerDay(date)}
+            dayOfWeek={date.getDay()}
+          />
         </View>
+
+        {sabbath && (
+          <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
+            <ParashaCard date={date} title="This Shabbat's Reading" />
+          </View>
+        )}
 
         {/* Scripture */}
         <View style={{ paddingHorizontal: 16, marginTop: 16 }}>

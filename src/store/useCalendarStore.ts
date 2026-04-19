@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { gregorianToHebrew, type HebrewDate } from '../engine/hebrewCalendar';
 import { calculateSunset, getNextDayBoundary, JERUSALEM_LAT, JERUSALEM_LON } from '../engine/sunset';
+import { getMoonPhase, type MoonPhase } from '../engine/moonPhase';
 
 interface CalendarState {
   currentGregorianDate: Date;
@@ -11,6 +12,10 @@ interface CalendarState {
   nextDayBegins: Date;
   latitude: number;
   longitude: number;
+  userLatitude: number | null;
+  userLongitude: number | null;
+  usingLocationFallback: boolean;
+  moonPhase: MoonPhase;
   setSelectedDate: (date: Date) => void;
   setLocation: (lat: number, lon: number) => void;
   refreshDates: () => void;
@@ -27,6 +32,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   nextDayBegins: getNextDayBoundary(now, JERUSALEM_LAT, JERUSALEM_LON),
   latitude: JERUSALEM_LAT,
   longitude: JERUSALEM_LON,
+  userLatitude: null,
+  userLongitude: null,
+  usingLocationFallback: true,
+  moonPhase: getMoonPhase(now),
   setSelectedDate: (date) =>
     set({ selectedDate: date, selectedHebrewDate: gregorianToHebrew(date) }),
   setLocation: (lat, lon) => {
@@ -34,8 +43,12 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     set({
       latitude: lat,
       longitude: lon,
+      userLatitude: lat,
+      userLongitude: lon,
+      usingLocationFallback: false,
       sunsetToday: calculateSunset(today, lat, lon),
       nextDayBegins: getNextDayBoundary(today, lat, lon),
+      moonPhase: getMoonPhase(today),
     });
   },
   refreshDates: () => {
@@ -46,6 +59,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       currentHebrewDate: gregorianToHebrew(today),
       sunsetToday: calculateSunset(today, latitude, longitude),
       nextDayBegins: getNextDayBoundary(today, latitude, longitude),
+      moonPhase: getMoonPhase(today),
     });
   },
 }));

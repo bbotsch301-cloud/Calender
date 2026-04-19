@@ -4,7 +4,7 @@
  * For purposes of "is this date a sabbath day": we treat Saturday as the sabbath day.
  */
 
-import { addDays, dayOfWeek } from './hebrewCalendar';
+import { addDays, dayOfWeek, gregorianToHebrew } from './hebrewCalendar';
 
 export function isSabbath(date: Date): boolean {
   return dayOfWeek(date) === 6; // Saturday
@@ -46,6 +46,16 @@ export function getSabbathsInRange(start: Date, end: Date): Date[] {
     d = addDays(d, 1);
   }
   return result;
+}
+
+/**
+ * Rosh Chodesh — the head of the (Hebrew) month.
+ * True when the Hebrew calendar day === 1.
+ * Some Hebrew months are also observed on day 30 of the previous month
+ * (when that month has 30 days), but per the spec we test day === 1 strictly.
+ */
+export function isRoshChodesh(date: Date): boolean {
+  return gregorianToHebrew(date).day === 1;
 }
 
 export function countSabbathsInYear(year: number): number {

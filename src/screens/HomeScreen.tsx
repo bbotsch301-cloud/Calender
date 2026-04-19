@@ -9,6 +9,12 @@ import { useThemeStore } from '../store/useThemeStore';
 import { Colors } from '../constants/colors';
 import { DualDateHeader } from '../components/shared/DualDateHeader';
 import { CountdownTimer } from '../components/shared/CountdownTimer';
+import { MoonPhaseDisplay } from '../components/shared/MoonPhaseDisplay';
+import { LocationBanner } from '../components/shared/LocationBanner';
+import { MeaningOfToday } from '../components/shared/MeaningOfToday';
+import { ParashaCard } from '../components/shared/ParashaCard';
+import { OmerBadge } from '../components/shared/OmerBadge';
+import { isOmerSeason, getOmerDay } from '../engine/omer';
 import { TimelineScroll } from '../components/timeline/TimelineScroll';
 import { FeastModeOverlay } from '../components/feast/FeastModeOverlay';
 import { FeastCard } from '../components/feast/FeastCard';
@@ -37,6 +43,26 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}>
         <DualDateHeader date={day.gregorianDate} />
 
+        <View
+          style={{
+            paddingHorizontal: 20,
+            marginTop: -4,
+            marginBottom: 8,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+          <MoonPhaseDisplay date={day.gregorianDate} compact />
+          <OmerBadge
+            date={day.gregorianDate}
+            compact
+            onPress={() => navigation.navigate('Omer')}
+          />
+        </View>
+
+        <LocationBanner />
+
         {currentFeast && <FeastModeOverlay feast={currentFeast} />}
 
         <View style={{ marginTop: 6, paddingHorizontal: 16 }}>
@@ -44,6 +70,21 @@ export function HomeScreen() {
             target={day.nextDayBegins}
             label="Next biblical day begins in"
           />
+        </View>
+
+        <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
+          <MeaningOfToday
+            hebrewDate={day.hebrewDate}
+            activeFeast={currentFeast}
+            isOmerSeason={isOmerSeason(day.gregorianDate)}
+            omerDay={getOmerDay(day.gregorianDate)}
+            dayOfWeek={day.gregorianDate.getDay()}
+            collapsible
+          />
+        </View>
+
+        <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
+          <ParashaCard date={day.gregorianDate} title="This Week's Reading" />
         </View>
 
         <View style={{ marginTop: 24 }}>

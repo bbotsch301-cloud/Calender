@@ -26,7 +26,7 @@ export interface UserPreferences {
 export interface ActivityLog {
   id: string;
   userId: string;
-  type: 'sabbath' | 'feast' | 'checkin' | 'scripture' | 'fast';
+  type: 'sabbath' | 'feast' | 'checkin' | 'scripture' | 'fast' | 'omer_count';
   date: Date;
   feastKey?: string;
   notes?: string;

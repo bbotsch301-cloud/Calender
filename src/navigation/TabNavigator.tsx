@@ -5,12 +5,17 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { TodayScreen } from '../screens/TodayScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { YearScreen } from '../screens/YearScreen';
+import { OmerScreen } from '../screens/OmerScreen';
 import { Colors } from '../constants/colors';
+import { isOmerSeason } from '../engine/omer';
 
 export type TabParamList = {
   Home: undefined;
   Calendar: undefined;
   Today: undefined;
+  Year: undefined;
+  Omer: undefined;
   Profile: undefined;
 };
 
@@ -27,18 +32,14 @@ function TabIcon({ symbol, focused }: { symbol: string; focused: boolean }) {
         borderRadius: 18,
         backgroundColor: focused ? 'rgba(201,168,76,0.15)' : 'transparent',
       }}>
-      <Text
-        style={{
-          fontSize: 18,
-          color: focused ? Colors.gold : Colors.textMuted,
-        }}>
-        {symbol}
-      </Text>
+      <Text style={{ fontSize: 18, color: focused ? Colors.gold : Colors.textMuted }}>{symbol}</Text>
     </View>
   );
 }
 
 export function TabNavigator() {
+  const showOmer = isOmerSeason(new Date());
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -54,38 +55,42 @@ export function TabNavigator() {
         tabBarActiveTintColor: Colors.gold,
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle: {
-          fontSize: 11,
-          letterSpacing: 0.5,
+          fontSize: 10,
+          letterSpacing: 0.4,
           textTransform: 'uppercase',
         },
       }}>
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon symbol="≣" focused={focused} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon symbol="≣" focused={focused} /> }}
       />
       <Tab.Screen
         name="Calendar"
         component={CalendarScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon symbol="▦" focused={focused} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon symbol="▦" focused={focused} /> }}
       />
       <Tab.Screen
         name="Today"
         component={TodayScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon symbol="☀" focused={focused} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon symbol="☀" focused={focused} /> }}
       />
+      <Tab.Screen
+        name="Year"
+        component={YearScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon symbol="📜" focused={focused} /> }}
+      />
+      {showOmer && (
+        <Tab.Screen
+          name="Omer"
+          component={OmerScreen}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon symbol="🔥" focused={focused} /> }}
+        />
+      )}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon symbol="◉" focused={focused} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon symbol="◉" focused={focused} /> }}
       />
     </Tab.Navigator>
   );

@@ -7,6 +7,7 @@ export interface CalendarDay {
   gregorianYear: number;
   hebrewDate: HebrewDate;
   isSabbath: boolean;
+  isRoshChodesh: boolean;
   isToday: boolean;
   isCurrentMonth: boolean;
   feastKey?: string;
