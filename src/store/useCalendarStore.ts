@@ -18,6 +18,7 @@ interface CalendarState {
   moonPhase: MoonPhase;
   setSelectedDate: (date: Date) => void;
   setLocation: (lat: number, lon: number) => void;
+  markUsingFallback: () => void;
   refreshDates: () => void;
 }
 
@@ -49,6 +50,18 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       sunsetToday: calculateSunset(today, lat, lon),
       nextDayBegins: getNextDayBoundary(today, lat, lon),
       moonPhase: getMoonPhase(today),
+    });
+  },
+  markUsingFallback: () => {
+    const today = new Date();
+    set({
+      latitude: JERUSALEM_LAT,
+      longitude: JERUSALEM_LON,
+      userLatitude: null,
+      userLongitude: null,
+      usingLocationFallback: true,
+      sunsetToday: calculateSunset(today, JERUSALEM_LAT, JERUSALEM_LON),
+      nextDayBegins: getNextDayBoundary(today, JERUSALEM_LAT, JERUSALEM_LON),
     });
   },
   refreshDates: () => {

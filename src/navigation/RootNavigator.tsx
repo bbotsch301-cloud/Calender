@@ -16,6 +16,9 @@ import { OnboardingScreen1 } from '../screens/onboarding/OnboardingScreen1';
 import { OnboardingScreen2 } from '../screens/onboarding/OnboardingScreen2';
 import { OnboardingScreen3, ONBOARDING_KEY } from '../screens/onboarding/OnboardingScreen3';
 import { Colors } from '../constants/colors';
+import { navigationRef } from './navigationRef';
+import { useNotificationScheduler } from '../hooks/useNotificationScheduler';
+import { useNotificationRouting } from '../hooks/useNotificationRouting';
 
 export type RootStackParamList = {
   Onboard1: undefined;
@@ -44,8 +47,15 @@ const navTheme = {
   },
 };
 
-export function RootNavigator() {
-  const { user, initialize, initialized } = useAuthStore();
+function InnerApp(): React.ReactElement {
+  // Side-effect hooks that should run throughout the authenticated session.
+  useNotificationScheduler();
+  useNotificationRouting();
+  return <></>;
+}
+
+export function RootNavigator(): React.ReactElement {
+  const { user, initialize, initialized, teardown } = useAuthStore();
   const loadFeasts = useFeastStore((s) => s.loadFeasts);
   const setUserId = useAlignmentStore((s) => s.setUserId);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
@@ -54,10 +64,18 @@ export function RootNavigator() {
   useEffect(() => {
     initialize();
     loadFeasts();
-    AsyncStorage.getItem(ONBOARDING_KEY).then((v) => {
-      setHasSeenOnboarding(v === '1');
-      setOnboardingChecked(true);
-    });
+    AsyncStorage.getItem(ONBOARDING_KEY)
+      .then((v) => {
+        setHasSeenOnboarding(v === '1');
+        setOnboardingChecked(true);
+      })
+      .catch(() => {
+        // Fail-open: if storage is broken, show onboarding (harmless).
+        setOnboardingChecked(true);
+      });
+    return () => {
+      teardown();
+    };
   }, []);
 
   useEffect(() => {
@@ -66,14 +84,21 @@ export function RootNavigator() {
 
   if (!initialized || !onboardingChecked) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: Colors.background,
+        }}>
         <ActivityIndicator color={Colors.gold} size="large" />
       </View>
     );
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
+      {user ? <InnerApp /> : null}
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!hasSeenOnboarding ? (
           <>

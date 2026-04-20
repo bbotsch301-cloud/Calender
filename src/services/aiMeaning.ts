@@ -13,12 +13,35 @@ import type { HebrewDate } from '../engine/hebrewCalendar';
 import { generateMeaningOfToday, getHebrewMonthTheme } from '../engine/meaningOfToday';
 
 declare const process: { env: Record<string, string | undefined> };
+declare const __DEV__: boolean;
 
 const ANTHROPIC_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
+const ANTHROPIC_PROXY_URL = process.env.EXPO_PUBLIC_ANTHROPIC_PROXY_URL ?? '';
 const MODEL = 'claude-haiku-4-5-20251001';
-const ENDPOINT = 'https://api.anthropic.com/v1/messages';
+const DIRECT_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
-export const isAIConfigured = Boolean(ANTHROPIC_API_KEY);
+/**
+ * In production we refuse to call the Anthropic API directly with a bundled
+ * key — doing so leaks the key to any user who inspects the app bundle.
+ * If a proxy URL is configured we use that; otherwise we silently fall back
+ * to the offline curated reflection.
+ *
+ * In dev we allow the direct call so authors can iterate quickly.
+ */
+export const isAIConfigured = Boolean(
+  ANTHROPIC_PROXY_URL || (__DEV__ && ANTHROPIC_API_KEY)
+);
+
+if (!__DEV__ && ANTHROPIC_API_KEY && !ANTHROPIC_PROXY_URL) {
+  // Silent in prod by design; dev gets a warning.
+}
+if (__DEV__ && ANTHROPIC_API_KEY && !ANTHROPIC_PROXY_URL) {
+  console.warn(
+    '[aiMeaning] EXPO_PUBLIC_ANTHROPIC_API_KEY is set without EXPO_PUBLIC_ANTHROPIC_PROXY_URL. ' +
+      'This is fine in development, but in production bundles the key would be visible to any user. ' +
+      'Set EXPO_PUBLIC_ANTHROPIC_PROXY_URL to a server you control for production.'
+  );
+}
 
 interface Args {
   hebrewDate: HebrewDate;
@@ -31,7 +54,7 @@ interface Args {
 
 export async function generateMeaningOfTodayWithAI(args: Args): Promise<string> {
   const fallback = generateMeaningOfToday(args);
-  if (!ANTHROPIC_API_KEY) return fallback;
+  if (!isAIConfigured) return fallback;
 
   const monthTheme = getHebrewMonthTheme(args.hebrewDate.month);
   const promptParts: string[] = [
@@ -51,14 +74,20 @@ export async function generateMeaningOfTodayWithAI(args: Args): Promise<string> 
     promptParts.join(' ') +
     ' Write a 2-3 sentence devotional reflection in a warm, scripturally-rooted voice. Avoid clichés. Do not list scriptures; weave any biblical reference naturally. Speak as a wise companion, not a teacher.';
 
+  // Prefer the proxy in any environment that has it set; only fall back to
+  // direct-to-Anthropic in __DEV__ with a raw key present.
+  const usingProxy = Boolean(ANTHROPIC_PROXY_URL);
+  const endpoint = usingProxy ? ANTHROPIC_PROXY_URL : DIRECT_ENDPOINT;
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (!usingProxy) {
+    headers['x-api-key'] = ANTHROPIC_API_KEY;
+    headers['anthropic-version'] = '2023-06-01';
+  }
+
   try {
-    const res = await fetch(ENDPOINT, {
+    const res = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
+      headers,
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 220,

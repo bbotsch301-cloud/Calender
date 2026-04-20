@@ -4,10 +4,8 @@
     "slug": "kingdom-calendar",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0A0A0F"
     },
@@ -16,13 +14,13 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.kingdomcalendar.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Kingdom Calendar uses your location to compute accurate sunset times for biblical day boundaries and feast observances."
+        "NSLocationWhenInUseUsageDescription": "Kingdom Calendar uses your location to compute accurate sunset times for biblical day boundaries and feast observances.",
+        "NSFaceIDUsageDescription": "Kingdom Calendar can use Face ID to keep your alignment journey private."
       }
     },
     "android": {
       "package": "com.kingdomcalendar.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0F"
       },
       "permissions": [
@@ -30,17 +28,16 @@
         "ACCESS_COARSE_LOCATION",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
       ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "web": {},
     "plugins": [
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
           "color": "#C9A84C"
         }
       ],
@@ -49,7 +46,9 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Kingdom Calendar to use your location for accurate sunset times."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-local-authentication"
     ],
     "extra": {
       "supabaseUrl": "",

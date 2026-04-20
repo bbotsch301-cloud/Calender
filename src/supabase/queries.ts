@@ -5,6 +5,21 @@ import { gregorianToHebrew } from '../engine/hebrewCalendar';
 import { isSabbath } from '../engine/sabbath';
 import type { ActivityLog, AlignmentStats, UserProfile } from '../types/user.types';
 import { computeAlignmentScore, type Activity, type ActivityType } from '../engine/alignment';
+import { useNetworkStore, isNetworkError } from '../store/useNetworkStore';
+import { clampNotes } from '../security/validators';
+
+function reportSupabaseError(e: unknown): void {
+  if (isNetworkError(e)) {
+    useNetworkStore
+      .getState()
+      .recordError(e instanceof Error ? e.message : String(e));
+  }
+}
+
+function recordSuccess(): void {
+  const s = useNetworkStore.getState();
+  if (s.consecutiveFailures > 0) s.clearError();
+}
 
 const ACTIVITY_KEY = 'kingdom-calendar:activity';
 const PROFILE_KEY = 'kingdom-calendar:profile';
@@ -57,45 +72,60 @@ export async function logActivity(
   date: Date,
   metadata?: { feastKey?: string; notes?: string }
 ): Promise<ActivityLog> {
+  // Sanitize free-text notes so untrusted content can't be oversized or
+  // contain control characters that would break queries / UI rendering.
+  const safeNotes = metadata?.notes ? clampNotes(metadata.notes) : undefined;
+  const safeFeastKey = metadata?.feastKey ? metadata.feastKey.slice(0, 40) : undefined;
+  const sanitized = { feastKey: safeFeastKey, notes: safeNotes };
   const log: ActivityLog = {
     id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     userId,
     type,
     date,
-    feastKey: metadata?.feastKey,
-    notes: metadata?.notes,
+    feastKey: safeFeastKey,
+    notes: safeNotes,
     createdAt: new Date(),
   };
-  const key = dedupeKey(type, date, metadata);
+  const key = dedupeKey(type, date, sanitized);
 
   if (isSupabaseConfigured && !userId.startsWith('guest-')) {
-    // Check for existing record for this dedupe key in the last 48h window.
-    const since = new Date(Date.now() - 2 * 86400000).toISOString();
-    const { data: existing, error: selErr } = await supabase
-      .from('user_activity')
-      .select('id, type, activity_date, feast_key, notes, created_at, user_id')
-      .eq('user_id', userId)
-      .eq('type', type)
-      .gte('activity_date', since);
-    if (selErr) throw selErr;
-    const match = (existing ?? []).find(
-      (r) => dedupeKey(r.type as ActivityType, new Date(r.activity_date as string), {
-        feastKey: (r.feast_key as string) ?? undefined,
-        notes: (r.notes as string) ?? undefined,
-      }) === key
-    );
-    if (match) return rowToActivity(match as Record<string, unknown>);
+    try {
+      // Check for existing record for this dedupe key in the last 48h window.
+      const since = new Date(Date.now() - 2 * 86400000).toISOString();
+      const { data: existing, error: selErr } = await supabase
+        .from('user_activity')
+        .select('id, type, activity_date, feast_key, notes, created_at, user_id')
+        .eq('user_id', userId)
+        .eq('type', type)
+        .gte('activity_date', since);
+      if (selErr) throw selErr;
+      const match = (existing ?? []).find(
+        (r) =>
+          dedupeKey(r.type as ActivityType, new Date(r.activity_date as string), {
+            feastKey: (r.feast_key as string) ?? undefined,
+            notes: (r.notes as string) ?? undefined,
+          }) === key
+      );
+      if (match) {
+        recordSuccess();
+        return rowToActivity(match as Record<string, unknown>);
+      }
 
-    const { error } = await supabase.from('user_activity').insert({
-      id: log.id,
-      user_id: userId,
-      type,
-      activity_date: date.toISOString(),
-      feast_key: metadata?.feastKey ?? null,
-      notes: metadata?.notes ?? null,
-    });
-    if (error) throw error;
-    return log;
+      const { error } = await supabase.from('user_activity').insert({
+        id: log.id,
+        user_id: userId,
+        type,
+        activity_date: date.toISOString(),
+        feast_key: safeFeastKey ?? null,
+        notes: safeNotes ?? null,
+      });
+      if (error) throw error;
+      recordSuccess();
+      return log;
+    } catch (e) {
+      reportSupabaseError(e);
+      // Fall through to local cache so the user's action isn't lost.
+    }
   }
 
   // Guest / local fallback — also deduped.
@@ -114,20 +144,45 @@ export async function getActivityHistory(userId: string, days = 90): Promise<Act
   since.setDate(since.getDate() - days);
 
   if (isSupabaseConfigured && !userId.startsWith('guest-')) {
-    const { data, error } = await supabase
-      .from('user_activity')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('activity_date', since.toISOString())
-      .order('activity_date', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(rowToActivity);
+    try {
+      const { data, error } = await supabase
+        .from('user_activity')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('activity_date', since.toISOString())
+        .order('activity_date', { ascending: false });
+      if (error) throw error;
+      recordSuccess();
+      return (data ?? []).map(rowToActivity);
+    } catch (e) {
+      reportSupabaseError(e);
+      // Fall through to local cache.
+    }
   }
 
   const local = await getLocalActivity();
   return local
     .filter((l) => new Date(l.date).getTime() >= since.getTime())
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+/**
+ * Deletes all activity for a user (for "Reset my alignment" flows).
+ * On guest accounts wipes AsyncStorage; on Supabase accounts deletes rows.
+ */
+export async function resetAlignment(userId: string): Promise<void> {
+  if (isSupabaseConfigured && !userId.startsWith('guest-')) {
+    try {
+      const { error } = await supabase.from('user_activity').delete().eq('user_id', userId);
+      if (error) throw error;
+      recordSuccess();
+      return;
+    } catch (e) {
+      reportSupabaseError(e);
+      throw e;
+    }
+  }
+  await AsyncStorage.removeItem(ACTIVITY_KEY);
 }
 
 export async function getAlignmentScore(userId: string): Promise<AlignmentStats> {
@@ -142,17 +197,29 @@ export async function getAlignmentScore(userId: string): Promise<AlignmentStats>
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   if (isSupabaseConfigured && !userId.startsWith('guest-')) {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    return rowToProfile(data);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      recordSuccess();
+      if (!data) return null;
+      return rowToProfile(data);
+    } catch (e) {
+      reportSupabaseError(e);
+      // Fall through to local cache if present.
+    }
   }
   const stored = await AsyncStorage.getItem(`${PROFILE_KEY}:${userId}`);
-  if (stored) return JSON.parse(stored) as UserProfile;
+  if (stored) {
+    try {
+      return JSON.parse(stored) as UserProfile;
+    } catch {
+      return null;
+    }
+  }
   return null;
 }
 
@@ -169,23 +236,31 @@ export async function updateUserProfile(
   };
 
   if (isSupabaseConfigured && !userId.startsWith('guest-')) {
-    const { error } = await supabase.from('users').upsert({
-      id: userId,
-      email: merged.email,
-      display_name: merged.displayName,
-      latitude: merged.latitude,
-      longitude: merged.longitude,
-      timezone: merged.timezone,
-      notifications_enabled: merged.notificationsEnabled,
-      sabbath_reminders_enabled: merged.sabbathRemindersEnabled,
-      feast_reminders_enabled: merged.feastRemindersEnabled,
-      daily_checkin_enabled: merged.dailyCheckinEnabled,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) throw error;
-  } else {
-    await AsyncStorage.setItem(`${PROFILE_KEY}:${userId}`, JSON.stringify(merged));
+    try {
+      const { error } = await supabase.from('users').upsert({
+        id: userId,
+        email: merged.email,
+        display_name: merged.displayName,
+        latitude: merged.latitude,
+        longitude: merged.longitude,
+        timezone: merged.timezone,
+        notifications_enabled: merged.notificationsEnabled,
+        sabbath_reminders_enabled: merged.sabbathRemindersEnabled,
+        feast_reminders_enabled: merged.feastRemindersEnabled,
+        daily_checkin_enabled: merged.dailyCheckinEnabled,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      recordSuccess();
+      // Also cache locally so the profile is available offline.
+      await AsyncStorage.setItem(`${PROFILE_KEY}:${userId}`, JSON.stringify(merged));
+      return merged;
+    } catch (e) {
+      reportSupabaseError(e);
+      // Persist locally as a best-effort fallback; will resync on next success.
+    }
   }
+  await AsyncStorage.setItem(`${PROFILE_KEY}:${userId}`, JSON.stringify(merged));
   return merged;
 }
 

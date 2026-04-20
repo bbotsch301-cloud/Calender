@@ -136,6 +136,45 @@ supabase/
 └── migrations/001_initial_schema.sql
 ```
 
+## Security
+
+- **Encrypted session storage.** Supabase auth persistence lives in
+  `expo-secure-store` (iOS Keychain / Android EncryptedSharedPreferences);
+  only the rare >1800-char value overflows to AsyncStorage.
+- **Input validation.** Email, password (≥8 chars, letter + digit), and
+  display-name checks happen client-side before any Supabase call. Free-text
+  notes are clamped to 500 chars and stripped of control characters.
+- **Local rate limiting.** After 3 failed sign-ins in a 15-minute window,
+  backoff begins (exponential, capped at 2 min). Complements Supabase's
+  own server-side limits — not a replacement.
+- **Clean sign-out.** Signing out wipes every guest-mode cache
+  (`guest-user`, `activity`, `profile:guest-*`).
+- **Guest → account migration.** When a guest signs up or signs in, any
+  existing AsyncStorage activity is pushed into Supabase under the new
+  `user_id` and then cleared — idempotent, gated by a `migrated:<uid>` flag.
+- **Auth listener.** `onAuthStateChange` is subscribed once and torn down
+  on app unmount. Token refreshes and remote sign-outs propagate through
+  Zustand.
+- **RLS everywhere.** All tables have per-user row-level security policies
+  (see `001_initial_schema.sql`). The `calendar_days` table is read-open
+  (it contains no PII).
+- **AI key hygiene.** In `__DEV__` the "Meaning of Today" card can call the
+  Anthropic API directly with `EXPO_PUBLIC_ANTHROPIC_API_KEY`. In production
+  the direct path is disabled; set `EXPO_PUBLIC_ANTHROPIC_PROXY_URL` to a
+  server you control that holds the real key. If neither is set, the
+  offline curated text is used transparently.
+- **No telemetry.** The `ErrorBoundary` logs only in `__DEV__`; nothing is
+  shipped to a third party.
+
+## Running tests
+
+```bash
+npm run test
+```
+
+Covers the pure engines (Hebrew calendar, feasts, Omer, moon phase, sunset,
+sabbath, alignment) plus the input validators. 51 tests across 8 suites.
+
 ## Tier 1–2 features
 
 - **Real moon phase.** Pure-math Dershowitz-style synodic-month calculation

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import {
   calculateSunset,
@@ -20,32 +21,50 @@ export interface SunsetData {
 
 export function useSunset(): SunsetData {
   const setLocation = useCalendarStore((s) => s.setLocation);
+  const markUsingFallback = useCalendarStore((s) => s.markUsingFallback);
   const latitude = useCalendarStore((s) => s.latitude);
   const longitude = useCalendarStore((s) => s.longitude);
   const [hasPermission, setHasPermission] = useState(false);
-  const [now, setNow] = useState(new Date());
+  const [now, setNow] = useState<Date>(() => new Date());
+  const mountedRef = useRef(true);
+
+  // Core check: never throw; always end in a sensible state.
+  async function checkLocation(): Promise<void> {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        if (mountedRef.current) setHasPermission(false);
+        markUsingFallback();
+        return;
+      }
+      if (mountedRef.current) setHasPermission(true);
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      if (!mountedRef.current) return;
+      setLocation(loc.coords.latitude, loc.coords.longitude);
+    } catch {
+      // Any failure (airplane mode, location off, timeout) → keep the
+      // existing Jerusalem fallback. Never crash.
+      if (mountedRef.current) setHasPermission(false);
+      markUsingFallback();
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { status } = await Location.getForegroundPermissionsAsync();
-        if (status === 'granted') {
-          setHasPermission(true);
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          if (!cancelled) {
-            setLocation(loc.coords.latitude, loc.coords.longitude);
-          }
-        }
-      } catch {
-        // fallback handled
-      }
-    })();
+    mountedRef.current = true;
+    checkLocation();
     return () => {
-      cancelled = true;
+      mountedRef.current = false;
     };
+  }, []);
+
+  // Re-check on foreground to catch OS-level permission revocation.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') checkLocation();
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
@@ -87,14 +106,19 @@ export async function requestLocationPermission(): Promise<{
   latitude: number | null;
   longitude: number | null;
 }> {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      return { granted: false, latitude: null, longitude: null };
+    }
+    const loc = await Location.getCurrentPositionAsync({});
+    return {
+      granted: true,
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+    };
+  } catch {
+    // Never crash on permission flows — gracefully fall back.
     return { granted: false, latitude: null, longitude: null };
   }
-  const loc = await Location.getCurrentPositionAsync({});
-  return {
-    granted: true,
-    latitude: loc.coords.latitude,
-    longitude: loc.coords.longitude,
-  };
 }

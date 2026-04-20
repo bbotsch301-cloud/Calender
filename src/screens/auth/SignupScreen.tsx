@@ -19,11 +19,7 @@ export function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  async function onSignup() {
-    if (!name.trim() || !email.trim() || password.length < 6) {
-      Alert.alert('Check your details', 'Provide a name, email, and password (min 6 chars).');
-      return;
-    }
+  async function onSignup(): Promise<void> {
     try {
       await signUp(email.trim(), password, name.trim());
       // Request location for sunset

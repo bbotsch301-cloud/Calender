@@ -9,6 +9,7 @@ import { YearScreen } from '../screens/YearScreen';
 import { OmerScreen } from '../screens/OmerScreen';
 import { Colors } from '../constants/colors';
 import { isOmerSeason } from '../engine/omer';
+import { useNow } from '../hooks/useNow';
 
 export type TabParamList = {
   Home: undefined;
@@ -38,7 +39,10 @@ function TabIcon({ symbol, focused }: { symbol: string; focused: boolean }) {
 }
 
 export function TabNavigator() {
-  const showOmer = isOmerSeason(new Date());
+  // Poll once an hour so the Omer tab appears/disappears automatically when
+  // the season starts or ends without requiring a manual app reload.
+  const now = useNow(60 * 60 * 1000);
+  const showOmer = isOmerSeason(now);
 
   return (
     <Tab.Navigator

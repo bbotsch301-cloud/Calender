@@ -14,11 +14,7 @@ export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  async function onLogin() {
-    if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
-      return;
-    }
+  async function onLogin(): Promise<void> {
     try {
       await signIn(email.trim(), password);
     } catch (e) {
@@ -72,6 +68,9 @@ export function LoginScreen() {
           <Pressable
             onPress={onLogin}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
+            accessibilityState={{ disabled: loading }}
             style={({ pressed }) => ({
               backgroundColor: Colors.gold,
               paddingVertical: 16,
@@ -112,6 +111,8 @@ export function LoginScreen() {
 
           <Pressable
             onPress={onGuest}
+            accessibilityRole="button"
+            accessibilityLabel="Continue as guest"
             style={({ pressed }) => ({
               borderWidth: 1,
               borderColor: Colors.border,

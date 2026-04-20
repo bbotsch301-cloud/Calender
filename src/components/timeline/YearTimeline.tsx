@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Text, Pressable, Animated } from 'react-native';
+import { View, Text, Pressable, Animated, FlatList } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FeastColors } from '../../constants/colors';
 import {
@@ -87,18 +87,25 @@ export function YearTimeline({ hebrewYear, onFeastPress }: Props) {
   const today = new Date();
 
   return (
-    <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-      {months.map((m, idx) => (
+    <FlatList
+      data={months}
+      keyExtractor={(m, idx) => `${m.hebrewMonthIdx}-${idx}`}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8 }}
+      initialNumToRender={6}
+      maxToRenderPerBatch={4}
+      windowSize={5}
+      removeClippedSubviews
+      scrollEnabled={false}
+      renderItem={({ item, index }) => (
         <MonthRow
-          key={`${m.hebrewMonthIdx}-${idx}`}
-          month={m}
-          delay={idx * 60}
+          month={item}
+          delay={index * 60}
           feasts={allFeasts}
           today={today}
           onFeastPress={onFeastPress}
         />
-      ))}
-    </View>
+      )}
+    />
   );
 }
 

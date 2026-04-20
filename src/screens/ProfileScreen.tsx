@@ -7,7 +7,8 @@ import { DarkCard } from '../components/ui/DarkCard';
 import { AlignmentScore } from '../components/shared/AlignmentScore';
 import { useAlignment } from '../hooks/useAlignment';
 import { useAuthStore } from '../store/useAuthStore';
-import { getUserProfile, updateUserProfile } from '../supabase/queries';
+import { getUserProfile, resetAlignment, updateUserProfile } from '../supabase/queries';
+import { useAlignmentStore } from '../store/useAlignmentStore';
 import { requestLocationPermission } from '../hooks/useSunset';
 import { useCalendarStore } from '../store/useCalendarStore';
 import type { UserProfile } from '../types/user.types';
@@ -31,15 +32,54 @@ export function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     if (user?.id) {
-      getUserProfile(user.id).then(setProfile);
+      getUserProfile(user.id)
+        .then((p) => {
+          if (!cancelled) setProfile(p);
+        })
+        .catch(() => {
+          // Profile is best-effort; a transient failure shouldn't block the screen.
+          if (!cancelled) setProfile(null);
+        });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
-  async function togglePref(key: keyof UserProfile, value: boolean) {
+  async function togglePref(key: keyof UserProfile, value: boolean): Promise<void> {
     if (!user?.id) return;
-    const next = (await updateUserProfile(user.id, { [key]: value } as Partial<UserProfile>));
-    setProfile(next);
+    try {
+      const next = await updateUserProfile(user.id, { [key]: value } as Partial<UserProfile>);
+      setProfile(next);
+    } catch {
+      Alert.alert('Could not save', 'Your change will be retried when you are back online.');
+    }
+  }
+
+  function onResetAlignment(): void {
+    if (!user?.id) return;
+    Alert.alert(
+      'Reset alignment?',
+      'This deletes every check-in, sabbath, feast, and Omer record on this account. You can start fresh, but this cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await resetAlignment(user.id);
+              useAlignmentStore.getState().fetchStats();
+              Alert.alert('Reset complete', 'Your alignment has been cleared.');
+            } catch {
+              Alert.alert('Could not reset', 'Try again when you are online.');
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function onLocation() {
@@ -190,6 +230,8 @@ export function ProfileScreen() {
         <View style={{ paddingHorizontal: 16, marginTop: 14, gap: 10 }}>
           <Pressable
             onPress={onLocation}
+            accessibilityRole="button"
+            accessibilityLabel="Set location for sunset calculations"
             style={({ pressed }) => ({
               padding: 14,
               borderRadius: 12,
@@ -205,7 +247,27 @@ export function ProfileScreen() {
           </Pressable>
 
           <Pressable
+            onPress={onResetAlignment}
+            accessibilityRole="button"
+            accessibilityLabel="Reset my alignment data"
+            style={({ pressed }) => ({
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: 'transparent',
+              borderWidth: 1,
+              borderColor: Colors.border,
+              alignItems: 'center',
+              opacity: pressed ? 0.85 : 1,
+            })}>
+            <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>
+              Reset My Alignment
+            </Text>
+          </Pressable>
+
+          <Pressable
             onPress={onSignOut}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
             style={({ pressed }) => ({
               padding: 14,
               borderRadius: 12,

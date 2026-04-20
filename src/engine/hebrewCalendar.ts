@@ -249,7 +249,7 @@ const HEBREW_NUMERALS: Array<[number, string]> = [
   [4, 'ד'], [3, 'ג'], [2, 'ב'], [1, 'א'],
 ];
 
-export function toHebrewNumeral(n: number): string {
+function toHebrewNumeralCore(n: number): string {
   if (n <= 0) return '';
   let result = '';
   let remaining = n;
@@ -261,6 +261,22 @@ export function toHebrewNumeral(n: number): string {
   }
   if (result.length === 1) return result + '׳';
   return result.slice(0, -1) + '״' + result.slice(-1);
+}
+
+/**
+ * Convert a positive integer to Hebrew numerals.
+ *
+ * For values ≥ 1000 we split the thousands and the units, joining them
+ * with a geresh (׳). e.g. 5785 → "ה׳תשפ״ה".
+ */
+export function toHebrewNumeral(n: number): string {
+  if (n <= 0) return '';
+  if (n < 1000) return toHebrewNumeralCore(n);
+  const thousands = Math.floor(n / 1000);
+  const rest = n % 1000;
+  const th = toHebrewNumeralCore(thousands).replace(/[׳״]/g, '');
+  if (rest === 0) return th + '׳';
+  return th + '׳' + toHebrewNumeralCore(rest);
 }
 
 export function formatHebrewDate(h: HebrewDate, opts?: { hebrew?: boolean }): string {
