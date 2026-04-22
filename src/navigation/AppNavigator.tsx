@@ -1,15 +1,17 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme, type NavigatorScreenParams } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Colors } from '../constants/colors';
 import { CalendarScreen } from '../screens/CalendarScreen';
 import { TodayScreen } from '../screens/TodayScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { LearnScreen, type LearnStackParamList } from '../screens/LearnScreen';
 
 export type TabParamList = {
   Calendar: undefined;
   Today: undefined;
+  Learn: NavigatorScreenParams<LearnStackParamList> | undefined;
   Settings: undefined;
 };
 
@@ -73,23 +75,22 @@ export function AppNavigator(): React.ReactElement {
         <Tab.Screen
           name="Calendar"
           component={CalendarScreen}
-          options={{
-            tabBarIcon: ({ focused }) => <TabIcon glyph="▦" focused={focused} />,
-          }}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="▦" focused={focused} /> }}
         />
         <Tab.Screen
           name="Today"
           component={TodayScreen}
-          options={{
-            tabBarIcon: ({ focused }) => <TabIcon glyph="☀" focused={focused} />,
-          }}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="☀" focused={focused} /> }}
+        />
+        <Tab.Screen
+          name="Learn"
+          component={LearnScreen}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="📖" focused={focused} /> }}
         />
         <Tab.Screen
           name="Settings"
           component={SettingsScreen}
-          options={{
-            tabBarIcon: ({ focused }) => <TabIcon glyph="⚙" focused={focused} />,
-          }}
+          options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="⚙" focused={focused} /> }}
         />
       </Tab.Navigator>
     </NavigationContainer>

@@ -15,6 +15,10 @@ export interface DayCellData {
   feast: Feast | null;
   feastDayNumber: number | null;
   omerDay: number | null;
+  /** Moon phase emoji computed by MonthGrid via getMoonPhase(). */
+  moonEmoji: string;
+  /** Human-readable phase name for screen readers. */
+  moonPhaseName: string;
 }
 
 interface Props {
@@ -34,6 +38,8 @@ export function DayCell({ data, onPress, minHeight = 92 }: Props): React.ReactEl
     isRoshChodesh,
     feast,
     omerDay,
+    moonEmoji,
+    moonPhaseName,
   } = data;
 
   const pill = feast ? FeastPillColors[feast.key] : null;
@@ -43,7 +49,7 @@ export function DayCell({ data, onPress, minHeight = 92 }: Props): React.ReactEl
     <Pressable
       onPress={() => onPress(data)}
       accessibilityRole="button"
-      accessibilityLabel={`${data.date.toDateString()}, ${hebrewDay} ${hebrewMonthName}${
+      accessibilityLabel={`${data.date.toDateString()}, ${hebrewDay} ${hebrewMonthName}, moon ${moonPhaseName}${
         feast ? `, ${feast.name}` : ''
       }${isRoshChodesh ? ', Rosh Chodesh' : ''}${omerDay ? `, Omer day ${omerDay}` : ''}`}
       style={({ pressed }) => ({
@@ -63,7 +69,7 @@ export function DayCell({ data, onPress, minHeight = 92 }: Props): React.ReactEl
         opacity: dim ? 0.35 : 1,
         justifyContent: 'flex-start',
       })}>
-      {/* Top row: Gregorian (left) + Hebrew (right) */}
+      {/* Top row: Gregorian day (left) + Hebrew day (right) */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Text
           style={{
@@ -87,7 +93,7 @@ export function DayCell({ data, onPress, minHeight = 92 }: Props): React.ReactEl
       </View>
 
       {/* Body: feast pill, Rosh Chodesh, Omer */}
-      <View style={{ marginTop: 4, gap: 3 }}>
+      <View style={{ marginTop: 4, gap: 3, flex: 1 }}>
         {pill && (
           <View
             style={{
@@ -112,19 +118,16 @@ export function DayCell({ data, onPress, minHeight = 92 }: Props): React.ReactEl
           </View>
         )}
         {isRoshChodesh && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-            <Text style={{ fontSize: 9 }}>🌒</Text>
-            <Text
-              numberOfLines={1}
-              style={{
-                color: Colors.goldLight,
-                fontSize: 9,
-                fontWeight: '700',
-                letterSpacing: 0.4,
-              }}>
-              Rosh Chodesh
-            </Text>
-          </View>
+          <Text
+            numberOfLines={1}
+            style={{
+              color: Colors.goldLight,
+              fontSize: 9,
+              fontWeight: '700',
+              letterSpacing: 0.4,
+            }}>
+            Rosh Chodesh
+          </Text>
         )}
         {omerDay !== null && omerDay >= 1 && omerDay <= 49 && (
           <Text
@@ -137,6 +140,24 @@ export function DayCell({ data, onPress, minHeight = 92 }: Props): React.ReactEl
             Omer {omerDay}
           </Text>
         )}
+      </View>
+
+      {/* Moon phase emoji at bottom-right of the cell. */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          right: 4,
+          bottom: 2,
+        }}>
+        <Text
+          style={{
+            fontSize: 11,
+            opacity: 0.9,
+          }}
+          accessibilityElementsHidden>
+          {moonEmoji}
+        </Text>
       </View>
     </Pressable>
   );

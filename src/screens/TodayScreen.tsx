@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, FeastPillColors } from '../constants/colors';
 import { gregorianToHebrew, toHebrewNumeral } from '../engine/hebrewCalendar';
 import { computeFeastsForYear, getActiveFeast, getFeastDayNumber } from '../engine/feasts';
@@ -9,6 +10,7 @@ import { getOmerDay } from '../engine/omer';
 import { getParashaForDate } from '../constants/parasha';
 import { useCalendarStore } from '../store/useCalendarStore';
 import { useNow } from '../hooks/useNow';
+import { ParashaModal } from '../components/learn/ParashaModal';
 
 const GREG_MONTHS_SHORT = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -59,6 +61,10 @@ export function TodayScreen(): React.ReactElement {
   const refreshDates = useCalendarStore((s) => s.refreshDates);
   const sunsetToday = useCalendarStore((s) => s.sunsetToday);
   const nextDayBegins = useCalendarStore((s) => s.nextDayBegins);
+  const navigation = useNavigation() as unknown as {
+    navigate: (name: string, params?: unknown) => void;
+  };
+  const [parashaModalOpen, setParashaModalOpen] = useState(false);
 
   // Keep sunset/boundary in sync when latitude/longitude change.
   useEffect(() => {
@@ -122,8 +128,25 @@ export function TodayScreen(): React.ReactElement {
           {today.getDate()} {GREG_MONTHS[today.getMonth()]} {today.getFullYear()}
         </Text>
 
-        {/* Hebrew date */}
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
+        {/* Hebrew date (tap → Learn > Months detail for the current month) */}
+        <Pressable
+          onPress={() =>
+            navigation.navigate('Learn', {
+              screen: 'MonthDetail',
+              params: { monthNumber: hebrew.month },
+            })
+          }
+          accessibilityRole="button"
+          accessibilityLabel={`Learn about the Hebrew month ${hebrew.monthName}`}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'baseline',
+            flexWrap: 'wrap',
+            gap: 10,
+            marginTop: 6,
+            paddingVertical: 4,
+            opacity: pressed ? 0.7 : 1,
+          })}>
           <Text
             style={{
               color: Colors.gold,
@@ -136,7 +159,8 @@ export function TodayScreen(): React.ReactElement {
           <Text style={{ color: Colors.goldLight, fontSize: 18 }}>
             · {toHebrewNumeral(hebrew.day)} {hebrew.monthNameHebrew} {toHebrewNumeral(hebrew.year)}
           </Text>
-        </View>
+          <Text style={{ color: Colors.textMuted, fontSize: 12, marginLeft: 4 }}>↗</Text>
+        </Pressable>
 
         {/* Badges */}
         {(feast || isSabbath(today) || omer !== null || isRoshChodesh(today)) && (
@@ -190,36 +214,56 @@ export function TodayScreen(): React.ReactElement {
           )}
         </View>
 
-        {/* Torah portion */}
+        {/* Torah portion (tappable — opens ParashaModal) */}
         <View style={{ marginTop: 28 }}>
           <SectionLabel>This Week's Torah Portion</SectionLabel>
-          <Text
-            style={{
-              color: Colors.text,
-              fontSize: 17,
-              fontWeight: '700',
+          <Pressable
+            onPress={() => setParashaModalOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`View details for parasha ${parasha.parasha.name}`}
+            style={({ pressed }) => ({
               marginTop: 6,
-              letterSpacing: 0.2,
-            }}>
-            {parasha.pairedWith
-              ? `${parasha.parasha.name} – ${parasha.pairedWith.name}`
-              : parasha.parasha.name}
-          </Text>
-          <Text style={{ color: Colors.goldLight, fontSize: 14, marginTop: 2, fontWeight: '600' }}>
-            {parasha.pairedWith
-              ? `${parasha.parasha.hebrewName} – ${parasha.pairedWith.hebrewName}`
-              : parasha.parasha.hebrewName}
-          </Text>
-          <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 6 }}>
-            {parasha.parasha.books}
-            {parasha.pairedWith ? ` · ${parasha.pairedWith.books}` : ''}
-          </Text>
-          <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 2 }}>
-            Reading on Shabbat {GREG_MONTHS_SHORT[parasha.sabbathDate.getMonth()]}{' '}
-            {parasha.sabbathDate.getDate()}
-          </Text>
+              paddingVertical: 6,
+              opacity: pressed ? 0.7 : 1,
+            })}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+              <Text
+                style={{
+                  color: Colors.text,
+                  fontSize: 17,
+                  fontWeight: '700',
+                  letterSpacing: 0.2,
+                }}>
+                {parasha.pairedWith
+                  ? `${parasha.parasha.name} – ${parasha.pairedWith.name}`
+                  : parasha.parasha.name}
+              </Text>
+              <Text style={{ color: Colors.gold, fontSize: 13, fontWeight: '700' }}>→</Text>
+            </View>
+            <Text style={{ color: Colors.goldLight, fontSize: 14, marginTop: 2, fontWeight: '600' }}>
+              {parasha.pairedWith
+                ? `${parasha.parasha.hebrewName} – ${parasha.pairedWith.hebrewName}`
+                : parasha.parasha.hebrewName}
+            </Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 6 }}>
+              {parasha.parasha.books}
+              {parasha.pairedWith ? ` · ${parasha.pairedWith.books}` : ''}
+            </Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 13, marginTop: 2 }}>
+              Reading on Shabbat {GREG_MONTHS_SHORT[parasha.sabbathDate.getMonth()]}{' '}
+              {parasha.sabbathDate.getDate()}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
+
+      <ParashaModal
+        parashaName={parasha.parasha.name}
+        pairedName={parasha.pairedWith?.name}
+        sabbathDateLabel={`Shabbat ${GREG_MONTHS_SHORT[parasha.sabbathDate.getMonth()]} ${parasha.sabbathDate.getDate()}`}
+        visible={parashaModalOpen}
+        onClose={() => setParashaModalOpen(false)}
+      />
     </SafeAreaView>
   );
 }

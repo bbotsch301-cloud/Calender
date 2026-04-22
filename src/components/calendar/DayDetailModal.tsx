@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, FeastPillColors } from '../../constants/colors';
 import { gregorianToHebrew, toHebrewNumeral } from '../../engine/hebrewCalendar';
 import { computeFeastsForYear, getActiveFeast, getFeastDayNumber } from '../../engine/feasts';
@@ -7,7 +8,9 @@ import { isRoshChodesh, isSabbath } from '../../engine/sabbath';
 import { getOmerDay } from '../../engine/omer';
 import { getParashaForDate } from '../../constants/parasha';
 import { calculateSunset } from '../../engine/sunset';
+import { getMoonPhase } from '../../engine/moonPhase';
 import { useCalendarStore } from '../../store/useCalendarStore';
+import { getLearnFeastByKey } from '../../content/feasts-content';
 
 interface Props {
   date: Date | null;
@@ -49,11 +52,19 @@ function fmtDateShort(d: Date): string {
   return `${GREG_MONTHS[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
 }
 
+// Navigation prop is loose-typed here because the modal is rendered by
+// CalendarScreen (a tab) but routes into a nested stack under the Learn
+// tab. React Navigation resolves this at runtime.
+interface NavHandle {
+  navigate: (name: string, params?: unknown) => void;
+}
+
 export function DayDetailModal({ date, onClose }: Props): React.ReactElement {
   const latitude = useCalendarStore((s) => s.latitude);
   const longitude = useCalendarStore((s) => s.longitude);
   const locationName = useCalendarStore((s) => s.locationName);
   const locationMode = useCalendarStore((s) => s.locationMode);
+  const navigation = useNavigation() as unknown as NavHandle;
 
   const detail = useMemo(() => {
     if (!date) return null;
@@ -65,6 +76,8 @@ export function DayDetailModal({ date, onClose }: Props): React.ReactElement {
     const omer = getOmerDay(date);
     const parasha = getParashaForDate(date, hebrew.year);
     const sunset = calculateSunset(date, latitude, longitude);
+    const noon = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+    const moon = getMoonPhase(noon);
     const prevDay = new Date(date);
     prevDay.setDate(prevDay.getDate() - 1);
     return {
@@ -75,6 +88,7 @@ export function DayDetailModal({ date, onClose }: Props): React.ReactElement {
       omer,
       parasha,
       sunset,
+      moon,
       prevDay,
       isSabbath: isSabbath(date),
       isRoshChodesh: isRoshChodesh(date),
@@ -277,6 +291,64 @@ export function DayDetailModal({ date, onClose }: Props): React.ReactElement {
                     </>
                   )}
                 </View>
+
+                {/* Moon phase */}
+                <View style={{ marginTop: 18 }}>
+                  <SectionLabel>Moon</SectionLabel>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <Text style={{ fontSize: 28 }}>{detail.moon.emoji}</Text>
+                    <View>
+                      <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '700' }}>
+                        {detail.moon.name}
+                      </Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                        {Math.round(detail.moon.illumination * 100)}% illuminated
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Deep link into Learn > Feasts */}
+                {detail.feast && (() => {
+                  const learnKey = mapFeastKeyToLearn(detail.feast.key);
+                  if (!learnKey || !getLearnFeastByKey(learnKey)) return null;
+                  return (
+                    <Pressable
+                      onPress={() => {
+                        onClose();
+                        navigation.navigate('Learn', {
+                          screen: 'FeastDetail',
+                          params: { feastKey: learnKey },
+                        });
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Learn about ${detail.feast.name}`}
+                      style={({ pressed }) => ({
+                        marginTop: 22,
+                        paddingVertical: 14,
+                        paddingHorizontal: 16,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: Colors.gold,
+                        backgroundColor: pressed ? 'rgba(201,168,76,0.18)' : 'rgba(201,168,76,0.08)',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      })}>
+                      <Text
+                        style={{
+                          color: Colors.gold,
+                          fontSize: 13,
+                          fontWeight: '800',
+                          letterSpacing: 1.2,
+                          textTransform: 'uppercase',
+                        }}>
+                        Learn about {detail.feast.name}
+                      </Text>
+                      <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>→</Text>
+                    </Pressable>
+                  );
+                })()}
               </>
             )}
           </ScrollView>
@@ -321,4 +393,28 @@ function SectionLabel({ children }: { children: string }): React.ReactElement {
       {children}
     </Text>
   );
+}
+
+/**
+ * Map calendar-engine feast keys (the date-computation names) to the
+ * Learn content file's keys. Most are identical — the divergence is
+ * purely cosmetic on the Learn side.
+ */
+function mapFeastKeyToLearn(key: string): string | null {
+  // 1:1 mapping today; the function exists so future renames or aliases
+  // (e.g. adding Shabbat / Rosh Chodesh deep links that aren't feasts
+  // in the calendar engine) have a single place to live.
+  const map: Record<string, string> = {
+    passover: 'passover',
+    unleavenedBread: 'unleavenedBread',
+    firstfruits: 'firstfruits',
+    shavuot: 'shavuot',
+    yomTeruah: 'yomTeruah',
+    yomKippur: 'yomKippur',
+    sukkot: 'sukkot',
+    sheminiAtzeret: 'sheminiAtzeret',
+    hanukkah: 'hanukkah',
+    purim: 'purim',
+  };
+  return map[key] ?? null;
 }

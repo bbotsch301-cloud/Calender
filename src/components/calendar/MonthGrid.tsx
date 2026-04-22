@@ -5,6 +5,7 @@ import { gregorianToHebrew } from '../../engine/hebrewCalendar';
 import { isRoshChodesh, isSabbath } from '../../engine/sabbath';
 import { getFeastDayNumber, getFeastsForMonthRange, type Feast } from '../../engine/feasts';
 import { getOmerDay } from '../../engine/omer';
+import { getMoonPhase } from '../../engine/moonPhase';
 import { DayCell, type DayCellData } from './DayCell';
 
 interface Props {
@@ -59,6 +60,10 @@ export function MonthGrid({ year, month, weekStartSunday, onDayPress }: Props): 
         const feast = findFeastFor(d, feasts);
         const feastDayNumber = feast ? getFeastDayNumber(d, feast) : null;
         const omer = getOmerDay(d);
+        // Sample moon phase at noon local — stable within a cell, avoids
+        // the pre-dawn edge where the phase emoji might flip mid-hour.
+        const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+        const moon = getMoonPhase(noon);
         row.push({
           date: d,
           gregorianDay: d.getDate(),
@@ -71,6 +76,8 @@ export function MonthGrid({ year, month, weekStartSunday, onDayPress }: Props): 
           feast,
           feastDayNumber,
           omerDay: omer,
+          moonEmoji: moon.emoji,
+          moonPhaseName: moon.name,
         });
       }
       rows.push(row);

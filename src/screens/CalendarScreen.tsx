@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../constants/colors';
 import { MonthGrid } from '../components/calendar/MonthGrid';
 import { DayDetailModal } from '../components/calendar/DayDetailModal';
 import { gregorianToHebrew } from '../engine/hebrewCalendar';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useCalendarStore } from '../store/useCalendarStore';
 import type { DayCellData } from '../components/calendar/DayCell';
 
 const MONTHS = [
@@ -30,12 +32,21 @@ function hebrewRangeLabel(year: number, month: number): string {
   return `${first.monthName} ${first.year} – ${last.monthName} ${last.year}`;
 }
 
+interface NavHandle {
+  navigate: (name: string, params?: unknown) => void;
+}
+
 export function CalendarScreen(): React.ReactElement {
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState<number>(today.getFullYear());
   const [month, setMonth] = useState<number>(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  // Session-only: banner stays dismissed until the app is fully restarted.
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const weekStartSunday = useSettingsStore((s) => s.weekStartSunday);
+  const locationMode = useCalendarStore((s) => s.locationMode);
+  const navigation = useNavigation() as unknown as NavHandle;
+  const showLocationBanner = locationMode === 'fallback' && !bannerDismissed;
 
   const hebrewLabel = useMemo(() => hebrewRangeLabel(year, month), [year, month]);
   const atCurrentMonth = year === today.getFullYear() && month === today.getMonth();
@@ -124,6 +135,52 @@ export function CalendarScreen(): React.ReactElement {
           <NavButton label="›" onPress={nextMonth} a11y="Next month" />
         </View>
       </View>
+
+      {/* Location-missing banner (session-only dismiss) */}
+      {showLocationBanner && (
+        <View style={{ paddingHorizontal: 12, marginBottom: 6 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(201,168,76,0.10)',
+              borderWidth: 1,
+              borderColor: Colors.gold,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              gap: 10,
+            }}>
+            <Pressable
+              onPress={() => navigation.navigate('Settings')}
+              accessibilityRole="button"
+              accessibilityLabel="Open Settings to set your location"
+              style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: Colors.gold,
+                  fontSize: 13,
+                  fontWeight: '700',
+                  letterSpacing: 0.3,
+                }}>
+                📍 Set your location for accurate sunset times
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setBannerDismissed(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss location banner"
+              hitSlop={10}
+              style={({ pressed }) => ({
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                opacity: pressed ? 0.6 : 1,
+              })}>
+              <Text style={{ color: Colors.textMuted, fontSize: 20, fontWeight: '600' }}>×</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* Grid */}
       <View style={{ flex: 1, paddingHorizontal: 8 }}>
