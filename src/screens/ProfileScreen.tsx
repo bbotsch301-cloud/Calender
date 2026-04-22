@@ -5,12 +5,11 @@ import { Colors } from '../constants/colors';
 import { GoldText } from '../components/ui/GoldText';
 import { DarkCard } from '../components/ui/DarkCard';
 import { AlignmentScore } from '../components/shared/AlignmentScore';
+import { LocationEditor } from '../components/shared/LocationEditor';
 import { useAlignment } from '../hooks/useAlignment';
 import { useAuthStore } from '../store/useAuthStore';
 import { getUserProfile, resetAlignment, updateUserProfile } from '../supabase/queries';
 import { useAlignmentStore } from '../store/useAlignmentStore';
-import { requestLocationPermission } from '../hooks/useSunset';
-import { useCalendarStore } from '../store/useCalendarStore';
 import type { UserProfile } from '../types/user.types';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -28,7 +27,6 @@ export function ProfileScreen() {
   const { user, signOut } = useAuthStore();
   const { score, streak, sabbathsKept, feastsEngaged, checkIns, scripturesRead, recentActivity } =
     useAlignment();
-  const setLocation = useCalendarStore((s) => s.setLocation);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [resetting, setResetting] = useState(false);
 
@@ -86,25 +84,8 @@ export function ProfileScreen() {
     );
   }
 
-  async function onLocation() {
-    const r = await requestLocationPermission();
-    if (!r.granted || r.latitude === null || r.longitude === null) {
-      Alert.alert(
-        'Permission denied',
-        'Location is needed for accurate sunset times. Falling back to Jerusalem.'
-      );
-      return;
-    }
-    setLocation(r.latitude, r.longitude);
-    if (user?.id) {
-      const next = await updateUserProfile(user.id, {
-        latitude: r.latitude,
-        longitude: r.longitude,
-      });
-      setProfile(next);
-    }
-    Alert.alert('Location set', 'Sunset times will now use your location.');
-  }
+  // Location entry now lives in <LocationEditor/> below; it handles GPS,
+  // text search (Nominatim), and resolved-name display end-to-end.
 
   function onSignOut() {
     Alert.alert('Sign out', 'Are you sure?', [
@@ -230,26 +211,16 @@ export function ProfileScreen() {
           </DarkCard>
         </View>
 
-        {/* Location & Sign out */}
-        <View style={{ paddingHorizontal: 16, marginTop: 14, gap: 10 }}>
-          <Pressable
-            onPress={onLocation}
-            accessibilityRole="button"
-            accessibilityLabel="Set location for sunset calculations"
-            style={({ pressed }) => ({
-              padding: 14,
-              borderRadius: 12,
-              backgroundColor: Colors.surface,
-              borderWidth: 1,
-              borderColor: Colors.border,
-              alignItems: 'center',
-              opacity: pressed ? 0.85 : 1,
-            })}>
-            <Text style={{ color: Colors.gold, fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>
-              Set Location for Sunset
-            </Text>
-          </Pressable>
+        {/* Location editor — manual text + GPS detect */}
+        <View style={{ paddingHorizontal: 16, marginTop: 18 }}>
+          <GoldText size="sm" weight="bold" style={{ marginBottom: 8, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+            Location for Sunset
+          </GoldText>
+          <LocationEditor />
+        </View>
 
+        {/* Account actions */}
+        <View style={{ paddingHorizontal: 16, marginTop: 18, gap: 10 }}>
           <Pressable
             onPress={onResetAlignment}
             disabled={resetting}

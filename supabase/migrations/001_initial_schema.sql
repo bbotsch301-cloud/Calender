@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS public.users (
   display_name text,
   latitude double precision,
   longitude double precision,
+  location_name text,
+  location_mode text NOT NULL DEFAULT 'fallback'
+    CHECK (location_mode IN ('gps', 'manual', 'fallback')),
   timezone text,
   notifications_enabled boolean NOT NULL DEFAULT true,
   sabbath_reminders_enabled boolean NOT NULL DEFAULT true,

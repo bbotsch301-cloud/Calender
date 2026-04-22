@@ -24,17 +24,28 @@ export function useSunset(): SunsetData {
   const markUsingFallback = useCalendarStore((s) => s.markUsingFallback);
   const latitude = useCalendarStore((s) => s.latitude);
   const longitude = useCalendarStore((s) => s.longitude);
+  const locationMode = useCalendarStore((s) => s.locationMode);
   const [hasPermission, setHasPermission] = useState(false);
   const [now, setNow] = useState<Date>(() => new Date());
   const mountedRef = useRef(true);
 
   // Core check: never throw; always end in a sensible state.
   async function checkLocation(): Promise<void> {
+    // Respect an explicit manual choice — never silently replace the
+    // user's typed location with a GPS fix on foreground.
+    if (useCalendarStore.getState().locationMode === 'manual') {
+      if (mountedRef.current) setHasPermission(false);
+      return;
+    }
     try {
       const { status } = await Location.getForegroundPermissionsAsync();
       if (status !== 'granted') {
         if (mountedRef.current) setHasPermission(false);
-        markUsingFallback();
+        // Only fall back to Jerusalem if we don't have a prior fix and
+        // we're not already in manual mode.
+        if (useCalendarStore.getState().locationMode !== 'manual') {
+          markUsingFallback();
+        }
         return;
       }
       if (mountedRef.current) setHasPermission(true);
@@ -42,12 +53,14 @@ export function useSunset(): SunsetData {
         accuracy: Location.Accuracy.Balanced,
       });
       if (!mountedRef.current) return;
-      setLocation(loc.coords.latitude, loc.coords.longitude);
+      setLocation(loc.coords.latitude, loc.coords.longitude, { mode: 'gps' });
     } catch {
       // Any failure (airplane mode, location off, timeout) → keep the
-      // existing Jerusalem fallback. Never crash.
+      // existing location unless we're already on the fallback.
       if (mountedRef.current) setHasPermission(false);
-      markUsingFallback();
+      if (useCalendarStore.getState().locationMode === 'fallback') {
+        markUsingFallback();
+      }
     }
   }
 
@@ -87,7 +100,7 @@ export function useSunset(): SunsetData {
       longitude: lon,
       hasLocationPermission: hasPermission,
     };
-  }, [now, latitude, longitude, hasPermission]);
+  }, [now, latitude, longitude, hasPermission, locationMode]);
 }
 
 function formatCountdown(ms: number): string {

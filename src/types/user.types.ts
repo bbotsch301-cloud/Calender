@@ -5,6 +5,8 @@ export interface UserProfile {
   isGuest: boolean;
   latitude: number | null;
   longitude: number | null;
+  locationName: string | null;
+  locationMode: 'gps' | 'manual' | 'fallback';
   timezone: string | null;
   notificationsEnabled: boolean;
   sabbathRemindersEnabled: boolean;
