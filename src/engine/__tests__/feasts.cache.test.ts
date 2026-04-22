@@ -25,9 +25,12 @@ describe('feasts cache', () => {
   });
 
   test('bounded cache: many distinct years remain computable', () => {
+    // The 8 Leviticus-23 moedim always appear; Hanukkah and/or Purim may
+    // also fall in the Gregorian year, so length is between 8 and 10.
     for (let y = 1990; y < 2040; y++) {
       const f = computeFeastsForYear(y);
-      expect(f.length).toBe(8);
+      expect(f.length).toBeGreaterThanOrEqual(8);
+      expect(f.length).toBeLessThanOrEqual(10);
     }
   });
 });

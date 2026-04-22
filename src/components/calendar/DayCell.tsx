@@ -1,88 +1,140 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { Colors, FeastColors } from '../../constants/colors';
-import { toHebrewNumeral } from '../../engine/hebrewCalendar';
-import type { CalendarDay } from '../../types/calendar.types';
+import { Pressable, Text, View } from 'react-native';
+import { Colors, FeastPillColors } from '../../constants/colors';
+import type { Feast } from '../../engine/feasts';
 
-interface Props {
-  day: CalendarDay;
-  onPress?: (day: CalendarDay) => void;
-  showHebrew?: boolean;
+export interface DayCellData {
+  date: Date;
+  gregorianDay: number;
+  hebrewDay: number;
+  hebrewMonthName: string;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isSaturday: boolean;
+  isRoshChodesh: boolean;
+  feast: Feast | null;
+  feastDayNumber: number | null;
+  omerDay: number | null;
 }
 
-export function DayCell({ day, onPress, showHebrew = true }: Props) {
-  const feastColor = day.feastKey ? FeastColors[day.feastKey] : null;
-  const isCurrent = day.isCurrentMonth;
-  const isToday = day.isToday;
-  const isSabbath = day.isSabbath;
+interface Props {
+  data: DayCellData;
+  onPress: (d: DayCellData) => void;
+  minHeight?: number;
+}
+
+export function DayCell({ data, onPress, minHeight = 92 }: Props): React.ReactElement {
+  const {
+    gregorianDay,
+    hebrewDay,
+    hebrewMonthName,
+    isCurrentMonth,
+    isToday,
+    isSaturday,
+    isRoshChodesh,
+    feast,
+    omerDay,
+  } = data;
+
+  const pill = feast ? FeastPillColors[feast.key] : null;
+  const dim = !isCurrentMonth;
 
   return (
     <Pressable
-      onPress={() => onPress?.(day)}
+      onPress={() => onPress(data)}
+      accessibilityRole="button"
+      accessibilityLabel={`${data.date.toDateString()}, ${hebrewDay} ${hebrewMonthName}${
+        feast ? `, ${feast.name}` : ''
+      }${isRoshChodesh ? ', Rosh Chodesh' : ''}${omerDay ? `, Omer day ${omerDay}` : ''}`}
       style={({ pressed }) => ({
         flex: 1,
-        aspectRatio: 0.85,
-        margin: 2,
-        borderRadius: 8,
-        padding: 4,
-        backgroundColor: isToday ? 'rgba(201,168,76,0.12)' : Colors.surface,
-        borderWidth: isSabbath ? 1.5 : isToday ? 1 : 1,
-        borderColor: isToday
-          ? Colors.gold
-          : isSabbath
-          ? Colors.gold
-          : Colors.border,
-        opacity: isCurrent ? 1 : 0.35,
-        transform: [{ scale: pressed ? 0.96 : 1 }],
+        minHeight,
+        paddingVertical: 6,
+        paddingHorizontal: 6,
+        // Today gets a bright gold border and tinted background.
+        borderWidth: isToday ? 2 : 0,
+        borderColor: isToday ? Colors.gold : 'transparent',
+        borderRadius: 10,
+        backgroundColor: isToday
+          ? 'rgba(201,168,76,0.10)'
+          : pressed
+          ? 'rgba(255,255,255,0.03)'
+          : 'transparent',
+        opacity: dim ? 0.35 : 1,
+        justifyContent: 'flex-start',
       })}>
-      <View style={{ flex: 1, justifyContent: 'space-between' }}>
+      {/* Top row: Gregorian (left) + Hebrew (right) */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Text
           style={{
             color: Colors.text,
-            fontSize: 13,
+            fontSize: 16,
             fontWeight: isToday ? '800' : '600',
-            textAlign: 'left',
+            letterSpacing: 0.2,
           }}>
-          {day.gregorianDay}
+          {gregorianDay}
         </Text>
-        {showHebrew && (
-          <Text
-            style={{
-              color: Colors.gold,
-              fontSize: 9,
-              fontWeight: '600',
-              textAlign: 'right',
-              marginTop: 'auto',
-            }}>
-            {toHebrewNumeral(day.hebrewDate.day)}
-          </Text>
-        )}
-        {feastColor && (
+        <Text
+          style={{
+            color: Colors.gold,
+            fontSize: 10,
+            fontWeight: '600',
+            letterSpacing: 0.3,
+          }}
+          numberOfLines={1}>
+          {hebrewDay} {hebrewMonthName.slice(0, 4)}
+        </Text>
+      </View>
+
+      {/* Body: feast pill, Rosh Chodesh, Omer */}
+      <View style={{ marginTop: 4, gap: 3 }}>
+        {pill && (
           <View
             style={{
-              position: 'absolute',
-              bottom: 2,
-              left: 2,
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: feastColor,
-              shadowColor: feastColor,
-              shadowOpacity: 0.8,
-              shadowRadius: 4,
-              shadowOffset: { width: 0, height: 0 },
-            }}
-          />
+              alignSelf: 'flex-start',
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
+              backgroundColor: pill.bg,
+              maxWidth: '100%',
+            }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                color: pill.text,
+                fontSize: 9,
+                fontWeight: '800',
+                letterSpacing: 0.4,
+              }}>
+              {pill.shortName}
+              {isSaturday && feast ? ' · Shabbat' : ''}
+            </Text>
+          </View>
         )}
-        {day.isRoshChodesh && (
+        {isRoshChodesh && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Text style={{ fontSize: 9 }}>🌒</Text>
+            <Text
+              numberOfLines={1}
+              style={{
+                color: Colors.goldLight,
+                fontSize: 9,
+                fontWeight: '700',
+                letterSpacing: 0.4,
+              }}>
+              Rosh Chodesh
+            </Text>
+          </View>
+        )}
+        {omerDay !== null && omerDay >= 1 && omerDay <= 49 && (
           <Text
             style={{
-              position: 'absolute',
-              top: -2,
-              right: -2,
-              fontSize: 12,
+              color: Colors.textMuted,
+              fontSize: 9,
+              fontWeight: '600',
+              letterSpacing: 0.3,
             }}>
-            🌑
+            Omer {omerDay}
           </Text>
         )}
       </View>

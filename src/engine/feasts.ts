@@ -1,52 +1,45 @@
 /**
- * Computes the 8 Leviticus 23 feasts for any Gregorian year.
- * Day boundaries are sunset-based; the listed startDate is the Gregorian date
- * whose evening (sunset) begins the feast.
+ * Computes the biblical feasts for a given Gregorian year.
+ *
+ * The seven Leviticus-23 moedim:
+ *   passover, unleavenedBread, firstfruits, shavuot,
+ *   yomTeruah, yomKippur, sukkot, sheminiAtzeret
+ *
+ * Plus two later festivals:
+ *   hanukkah, purim
+ *
+ * Day boundaries are sunset-based; `startDate` is the Gregorian date
+ * whose evening (sunset of the prior civil day) begins the feast.
  */
 
-import { hebrewToGregorian, gregorianToHebrew, addDays, dayOfWeek } from './hebrewCalendar';
+import { hebrewToGregorian, addDays, dayOfWeek, isLeapYear } from './hebrewCalendar';
 import { FEAST_METADATA } from '../constants/feasts';
 
 export type FeastKey =
   | 'passover'
   | 'unleavenedBread'
   | 'firstfruits'
-  | 'pentecost'
-  | 'trumpets'
-  | 'atonement'
-  | 'tabernacles'
-  | 'eighthDay';
+  | 'shavuot'
+  | 'yomTeruah'
+  | 'yomKippur'
+  | 'sukkot'
+  | 'sheminiAtzeret'
+  | 'hanukkah'
+  | 'purim';
 
 export interface Feast {
   key: FeastKey;
   name: string;
   hebrewName: string;
-  leviticusRef: string;
-  startDate: Date; // Sunset of previous evening begins the feast; this is the Gregorian date the feast begins at sunset
+  description: string;
+  startDate: Date;
   endDate: Date;
   durationDays: number;
-  description: string;
-  biblicalMeaning: string;
-  instructions: string[];
-  scriptures: string[];
-  colorAccent: string;
-  icon: string;
   hebrewMonth: number;
   hebrewDay: number;
 }
 
-/**
- * Hebrew calendar year overlapping a Gregorian year:
- * Spring feasts (Passover etc.) fall in Nisan (month 1) of the Hebrew year that began
- * the previous Tishri. Fall feasts fall in Tishri/Cheshvan (month 7-8).
- *
- * To find the spring feasts in Gregorian year Y, we need the Hebrew year whose
- * 1 Nisan falls in March/April of Y. To find fall feasts, we use the Hebrew year
- * whose 1 Tishri falls in Sept/Oct of Y.
- */
-
 function findHebrewYearForSpring(gregYear: number): number {
-  // Try several Hebrew years; pick one where 15 Nisan falls in gregYear
   const approxHebrewYear = gregYear + 3760;
   for (const candidate of [approxHebrewYear, approxHebrewYear + 1, approxHebrewYear - 1]) {
     const passover = hebrewToGregorian(candidate, 1, 15);
@@ -65,24 +58,43 @@ function findHebrewYearForFall(gregYear: number): number {
 }
 
 /**
- * Compute the Sunday after Passover (15 Nisan) for Firstfruits / Wave Sheaf Offering.
- * Following the Pharisaic / traditional rabbinic dating used by many: 16 Nisan.
- * However the user spec says "Sunday after Passover week" — so we honor the spec
- * (this is the position of the wave sheaf in the Sadducean / many Christian readings).
+ * Hanukkah: 25 Kislev → + 7 days (8-day festival).
+ * We scan the Hebrew years whose Kislev touches the given Gregorian year.
  */
+function findHanukkahForGregYear(gregYear: number): { start: Date; end: Date; hebrewYear: number } | null {
+  for (const hy of [gregYear + 3761, gregYear + 3760, gregYear + 3762]) {
+    const start = hebrewToGregorian(hy, 9, 25);
+    if (start.getFullYear() === gregYear) {
+      const end = addDays(start, 7);
+      return { start, end, hebrewYear: hy };
+    }
+  }
+  return null;
+}
+
+/**
+ * Purim: 14 Adar (month 12) in a regular year, 14 Adar II (month 13) in a
+ * leap year. In leap years, 14 Adar I is "Purim Katan" — we use the main
+ * Purim date (Adar II) for the feast marker.
+ */
+function findPurimForGregYear(gregYear: number): { date: Date; hebrewYear: number } | null {
+  for (const hy of [gregYear + 3760, gregYear + 3761, gregYear + 3759]) {
+    const month = isLeapYear(hy) ? 13 : 12;
+    const date = hebrewToGregorian(hy, month, 14);
+    if (date.getFullYear() === gregYear) {
+      return { date, hebrewYear: hy };
+    }
+  }
+  return null;
+}
+
 function findFirstfruits(hebrewYear: number): Date {
   const passover = hebrewToGregorian(hebrewYear, 1, 15);
-  // Find first Sunday strictly after passover (15 Nisan)
   let d = addDays(passover, 1);
-  while (dayOfWeek(d) !== 0) {
-    d = addDays(d, 1);
-  }
+  while (dayOfWeek(d) !== 0) d = addDays(d, 1);
   return d;
 }
 
-// Module-level cache: the calculation is deterministic and small. A Map
-// bounded to the most recent ~20 years keeps memory fixed while avoiding
-// repeated Hebrew↔Gregorian conversions on every render.
 const FEAST_CACHE = new Map<number, Feast[]>();
 const FEAST_CACHE_MAX = 25;
 
@@ -102,40 +114,30 @@ function computeFeastsForYearUncached(gregYear: number): Feast[] {
   const springYear = findHebrewYearForSpring(gregYear);
   const fallYear = findHebrewYearForFall(gregYear);
 
-  // Passover: 14 Nisan at sunset (begins the 15th)
-  const passoverStart = hebrewToGregorian(springYear, 1, 14);
-  const passoverEnd = hebrewToGregorian(springYear, 1, 14);
-
-  // Unleavened Bread: 15-21 Nisan (7 days)
+  // Spring festivals — anchored to Nisan
+  const passover = hebrewToGregorian(springYear, 1, 14);
   const unleavenedStart = hebrewToGregorian(springYear, 1, 15);
   const unleavenedEnd = hebrewToGregorian(springYear, 1, 21);
+  const firstfruits = findFirstfruits(springYear);
+  const shavuot = addDays(firstfruits, 49);
 
-  // Firstfruits: Sunday after Passover week (wave sheaf)
-  const firstfruitsDate = findFirstfruits(springYear);
+  // Fall festivals — anchored to Tishri
+  const yomTeruah = hebrewToGregorian(fallYear, 7, 1);
+  const yomTeruahEnd = hebrewToGregorian(fallYear, 7, 2);
+  const yomKippur = hebrewToGregorian(fallYear, 7, 10);
+  const sukkotStart = hebrewToGregorian(fallYear, 7, 15);
+  const sukkotEnd = hebrewToGregorian(fallYear, 7, 21);
+  const sheminiAtzeret = hebrewToGregorian(fallYear, 7, 22);
 
-  // Pentecost (Shavuot): the 50th day counting from Firstfruits (day 1).
-  // Calendar: Firstfruits + 49 days. If Firstfruits is Sunday, Pentecost is Sunday.
-  const pentecostDate = addDays(firstfruitsDate, 49);
-
-  // Trumpets: 1 Tishri
-  const trumpetsDate = hebrewToGregorian(fallYear, 7, 1);
-  const trumpetsEnd = hebrewToGregorian(fallYear, 7, 2); // 2-day observance traditionally
-
-  // Atonement (Yom Kippur): 10 Tishri
-  const atonementDate = hebrewToGregorian(fallYear, 7, 10);
-
-  // Tabernacles (Sukkot): 15-21 Tishri (7 days)
-  const tabernaclesStart = hebrewToGregorian(fallYear, 7, 15);
-  const tabernaclesEnd = hebrewToGregorian(fallYear, 7, 21);
-
-  // Eighth Day (Shemini Atzeret): 22 Tishri
-  const eighthDay = hebrewToGregorian(fallYear, 7, 22);
+  // Hanukkah + Purim if they fall in this Gregorian year
+  const hanukkah = findHanukkahForGregYear(gregYear);
+  const purim = findPurimForGregYear(gregYear);
 
   const feasts: Feast[] = [
     {
       ...FEAST_METADATA.passover,
-      startDate: passoverStart,
-      endDate: passoverEnd,
+      startDate: passover,
+      endDate: passover,
       durationDays: 1,
       hebrewMonth: 1,
       hebrewDay: 14,
@@ -150,54 +152,76 @@ function computeFeastsForYearUncached(gregYear: number): Feast[] {
     },
     {
       ...FEAST_METADATA.firstfruits,
-      startDate: firstfruitsDate,
-      endDate: firstfruitsDate,
+      startDate: firstfruits,
+      endDate: firstfruits,
       durationDays: 1,
-      hebrewMonth: gregorianToHebrew(firstfruitsDate).month,
-      hebrewDay: gregorianToHebrew(firstfruitsDate).day,
+      hebrewMonth: 1,
+      hebrewDay: 16,
     },
     {
-      ...FEAST_METADATA.pentecost,
-      startDate: pentecostDate,
-      endDate: pentecostDate,
+      ...FEAST_METADATA.shavuot,
+      startDate: shavuot,
+      endDate: shavuot,
       durationDays: 1,
-      hebrewMonth: gregorianToHebrew(pentecostDate).month,
-      hebrewDay: gregorianToHebrew(pentecostDate).day,
+      hebrewMonth: 3,
+      hebrewDay: 6,
     },
     {
-      ...FEAST_METADATA.trumpets,
-      startDate: trumpetsDate,
-      endDate: trumpetsEnd,
+      ...FEAST_METADATA.yomTeruah,
+      startDate: yomTeruah,
+      endDate: yomTeruahEnd,
       durationDays: 2,
       hebrewMonth: 7,
       hebrewDay: 1,
     },
     {
-      ...FEAST_METADATA.atonement,
-      startDate: atonementDate,
-      endDate: atonementDate,
+      ...FEAST_METADATA.yomKippur,
+      startDate: yomKippur,
+      endDate: yomKippur,
       durationDays: 1,
       hebrewMonth: 7,
       hebrewDay: 10,
     },
     {
-      ...FEAST_METADATA.tabernacles,
-      startDate: tabernaclesStart,
-      endDate: tabernaclesEnd,
+      ...FEAST_METADATA.sukkot,
+      startDate: sukkotStart,
+      endDate: sukkotEnd,
       durationDays: 7,
       hebrewMonth: 7,
       hebrewDay: 15,
     },
     {
-      ...FEAST_METADATA.eighthDay,
-      startDate: eighthDay,
-      endDate: eighthDay,
+      ...FEAST_METADATA.sheminiAtzeret,
+      startDate: sheminiAtzeret,
+      endDate: sheminiAtzeret,
       durationDays: 1,
       hebrewMonth: 7,
       hebrewDay: 22,
     },
   ];
 
+  if (hanukkah) {
+    feasts.push({
+      ...FEAST_METADATA.hanukkah,
+      startDate: hanukkah.start,
+      endDate: hanukkah.end,
+      durationDays: 8,
+      hebrewMonth: 9,
+      hebrewDay: 25,
+    });
+  }
+  if (purim) {
+    feasts.push({
+      ...FEAST_METADATA.purim,
+      startDate: purim.date,
+      endDate: purim.date,
+      durationDays: 1,
+      hebrewMonth: isLeapYear(purim.hebrewYear) ? 13 : 12,
+      hebrewDay: 14,
+    });
+  }
+
+  feasts.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   return feasts;
 }
 
@@ -213,6 +237,26 @@ export function getActiveFeast(now: Date, feasts: Feast[]): Feast | null {
   return null;
 }
 
+/**
+ * Returns the day number within a multi-day feast (1-based).
+ * Null if the date is outside the feast's range.
+ */
+export function getFeastDayNumber(date: Date, feast: Feast): number | null {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const s = new Date(
+    feast.startDate.getFullYear(),
+    feast.startDate.getMonth(),
+    feast.startDate.getDate()
+  ).getTime();
+  const e = new Date(
+    feast.endDate.getFullYear(),
+    feast.endDate.getMonth(),
+    feast.endDate.getDate()
+  ).getTime();
+  if (d < s || d > e) return null;
+  return Math.round((d - s) / 86_400_000) + 1;
+}
+
 export function getNextFeast(now: Date, feasts: Feast[]): Feast | null {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const upcoming = feasts
@@ -221,10 +265,22 @@ export function getNextFeast(now: Date, feasts: Feast[]): Feast | null {
   return upcoming[0] || null;
 }
 
-export function getPreviousFeast(now: Date, feasts: Feast[]): Feast | null {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const past = feasts
-    .filter((f) => f.endDate.getTime() < today.getTime())
-    .sort((a, b) => b.endDate.getTime() - a.endDate.getTime());
-  return past[0] || null;
+/**
+ * Collects feasts that can be visible on a monthly grid for the given
+ * Gregorian year/month — includes adjacent-year spillovers so December
+ * / January grids render Hanukkah correctly.
+ */
+export function getFeastsForMonthRange(gregYear: number): Feast[] {
+  const seen = new Set<string>();
+  const out: Feast[] = [];
+  for (const y of [gregYear - 1, gregYear, gregYear + 1]) {
+    for (const f of computeFeastsForYear(y)) {
+      const key = `${f.key}-${f.startDate.toISOString()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(f);
+      }
+    }
+  }
+  return out;
 }

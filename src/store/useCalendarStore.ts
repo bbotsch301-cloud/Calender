@@ -1,95 +1,122 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { gregorianToHebrew, type HebrewDate } from '../engine/hebrewCalendar';
 import { calculateSunset, getNextDayBoundary, JERUSALEM_LAT, JERUSALEM_LON } from '../engine/sunset';
-import { getMoonPhase, type MoonPhase } from '../engine/moonPhase';
 
 export type LocationMode = 'gps' | 'manual' | 'fallback';
 
 interface SetLocationOptions {
-  /** Human-readable label, e.g. "Jerusalem, Israel". */
   name?: string | null;
-  /** How this location was resolved. Defaults to 'manual'. */
   mode?: LocationMode;
 }
 
 interface CalendarState {
-  currentGregorianDate: Date;
-  currentHebrewDate: HebrewDate;
-  selectedDate: Date;
-  selectedHebrewDate: HebrewDate;
-  sunsetToday: Date;
-  nextDayBegins: Date;
+  /** Latitude actually used for sunset math (may be Jerusalem fallback). */
   latitude: number;
   longitude: number;
-  userLatitude: number | null;
-  userLongitude: number | null;
-  usingLocationFallback: boolean;
+  /** Friendly label, e.g. "Jerusalem, Israel". */
   locationName: string | null;
   locationMode: LocationMode;
-  moonPhase: MoonPhase;
-  setSelectedDate: (date: Date) => void;
+  /** Derived — recomputed on every setLocation / refreshDates call. */
+  sunsetToday: Date;
+  nextDayBegins: Date;
   setLocation: (lat: number, lon: number, opts?: SetLocationOptions) => void;
   markUsingFallback: () => void;
+  /** Called periodically to keep sunset/next-day-boundary fresh. */
   refreshDates: () => void;
+  /** Hydrate from AsyncStorage — called once on app startup. */
+  hydrate: () => Promise<void>;
+}
+
+const STORAGE_KEY = 'kingdom-calendar:location';
+
+interface PersistedLocation {
+  latitude: number;
+  longitude: number;
+  locationName: string | null;
+  locationMode: LocationMode;
 }
 
 const now = new Date();
 
 export const useCalendarStore = create<CalendarState>((set, get) => ({
-  currentGregorianDate: now,
-  currentHebrewDate: gregorianToHebrew(now),
-  selectedDate: now,
-  selectedHebrewDate: gregorianToHebrew(now),
-  sunsetToday: calculateSunset(now, JERUSALEM_LAT, JERUSALEM_LON),
-  nextDayBegins: getNextDayBoundary(now, JERUSALEM_LAT, JERUSALEM_LON),
   latitude: JERUSALEM_LAT,
   longitude: JERUSALEM_LON,
-  userLatitude: null,
-  userLongitude: null,
-  usingLocationFallback: true,
   locationName: 'Jerusalem, Israel',
   locationMode: 'fallback',
-  moonPhase: getMoonPhase(now),
-  setSelectedDate: (date) =>
-    set({ selectedDate: date, selectedHebrewDate: gregorianToHebrew(date) }),
+  sunsetToday: calculateSunset(now, JERUSALEM_LAT, JERUSALEM_LON),
+  nextDayBegins: getNextDayBoundary(now, JERUSALEM_LAT, JERUSALEM_LON),
+
   setLocation: (lat, lon, opts = {}) => {
     const today = new Date();
-    set({
+    const next: PersistedLocation = {
       latitude: lat,
       longitude: lon,
-      userLatitude: lat,
-      userLongitude: lon,
-      usingLocationFallback: false,
       locationName: opts.name ?? null,
       locationMode: opts.mode ?? 'manual',
+    };
+    set({
+      latitude: next.latitude,
+      longitude: next.longitude,
+      locationName: next.locationName,
+      locationMode: next.locationMode,
       sunsetToday: calculateSunset(today, lat, lon),
       nextDayBegins: getNextDayBoundary(today, lat, lon),
-      moonPhase: getMoonPhase(today),
     });
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
   },
+
   markUsingFallback: () => {
     const today = new Date();
+    const next: PersistedLocation = {
+      latitude: JERUSALEM_LAT,
+      longitude: JERUSALEM_LON,
+      locationName: 'Jerusalem, Israel',
+      locationMode: 'fallback',
+    };
     set({
       latitude: JERUSALEM_LAT,
       longitude: JERUSALEM_LON,
-      userLatitude: null,
-      userLongitude: null,
-      usingLocationFallback: true,
       locationName: 'Jerusalem, Israel',
       locationMode: 'fallback',
       sunsetToday: calculateSunset(today, JERUSALEM_LAT, JERUSALEM_LON),
       nextDayBegins: getNextDayBoundary(today, JERUSALEM_LAT, JERUSALEM_LON),
     });
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
   },
+
   refreshDates: () => {
     const { latitude, longitude } = get();
     const today = new Date();
     set({
-      currentGregorianDate: today,
-      currentHebrewDate: gregorianToHebrew(today),
       sunsetToday: calculateSunset(today, latitude, longitude),
       nextDayBegins: getNextDayBoundary(today, latitude, longitude),
-      moonPhase: getMoonPhase(today),
     });
+  },
+
+  hydrate: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as PersistedLocation;
+      if (
+        typeof saved.latitude !== 'number' ||
+        typeof saved.longitude !== 'number' ||
+        !Number.isFinite(saved.latitude) ||
+        !Number.isFinite(saved.longitude)
+      ) {
+        return;
+      }
+      const today = new Date();
+      set({
+        latitude: saved.latitude,
+        longitude: saved.longitude,
+        locationName: saved.locationName ?? null,
+        locationMode: saved.locationMode ?? 'manual',
+        sunsetToday: calculateSunset(today, saved.latitude, saved.longitude),
+        nextDayBegins: getNextDayBoundary(today, saved.latitude, saved.longitude),
+      });
+    } catch {
+      /* ignore corrupted state */
+    }
   },
 }));

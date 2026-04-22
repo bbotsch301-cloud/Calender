@@ -1,7 +1,7 @@
 export const Colors = {
-  background: '#0A0A0F',
-  surface: '#12121A',
-  surfaceElev: '#1A1A24',
+  background: '#0D0D0F',
+  surface: '#15151A',
+  surfaceElev: '#1E1E25',
   gold: '#C9A84C',
   goldLight: '#E8C97A',
   goldDark: '#8B7232',
@@ -9,31 +9,31 @@ export const Colors = {
   textMuted: '#8A8578',
   textDim: '#5A5648',
   border: '#2A2A36',
-  borderActive: '#C9A84C',
   success: '#65A30D',
   error: '#DC2626',
   warning: '#F59E0B',
+  shabbatColumnTint: 'rgba(100, 80, 180, 0.12)',
+  shabbatBadge: '#6D5CC4',
   overlay: 'rgba(10, 10, 15, 0.85)',
+  modalBackdrop: 'rgba(0, 0, 0, 0.65)',
 } as const;
 
-export const FeastColors: Record<string, string> = {
-  passover: '#7C2D12',
-  unleavenedBread: '#A16207',
-  firstfruits: '#65A30D',
-  pentecost: '#0EA5E9',
-  trumpets: '#DC2626',
-  atonement: '#1E293B',
-  tabernacles: '#15803D',
-  eighthDay: '#9333EA',
-};
-
-export const FeastGlows: Record<string, string> = {
-  passover: 'rgba(124, 45, 18, 0.4)',
-  unleavenedBread: 'rgba(161, 98, 7, 0.4)',
-  firstfruits: 'rgba(101, 163, 13, 0.4)',
-  pentecost: 'rgba(14, 165, 233, 0.4)',
-  trumpets: 'rgba(220, 38, 38, 0.4)',
-  atonement: 'rgba(30, 41, 59, 0.4)',
-  tabernacles: 'rgba(21, 128, 61, 0.4)',
-  eighthDay: 'rgba(147, 51, 234, 0.4)',
+/**
+ * Pill colors by feast key. `bg` is the filled background of the pill;
+ * `text` is the foreground. Chosen for WCAG AA contrast on the dark UI.
+ */
+export const FeastPillColors: Record<
+  string,
+  { bg: string; text: string; shortName: string }
+> = {
+  passover:        { bg: '#B91C1C', text: '#FFFFFF', shortName: 'Passover' },
+  unleavenedBread: { bg: '#DC2626', text: '#FFFFFF', shortName: 'Unleavened' },
+  firstfruits:     { bg: '#16A34A', text: '#FFFFFF', shortName: 'Firstfruits' },
+  shavuot:         { bg: '#15803D', text: '#FFFFFF', shortName: 'Shavuot' },
+  yomTeruah:       { bg: '#0EA5E9', text: '#FFFFFF', shortName: 'Yom Teruah' },
+  yomKippur:       { bg: '#4C1D95', text: '#FFFFFF', shortName: 'Yom Kippur' },
+  sukkot:          { bg: '#EA580C', text: '#FFFFFF', shortName: 'Sukkot' },
+  sheminiAtzeret:  { bg: '#C9A84C', text: '#0D0D0F', shortName: "8th Day" },
+  hanukkah:        { bg: '#2563EB', text: '#FFFFFF', shortName: 'Hanukkah' },
+  purim:           { bg: '#9333EA', text: '#FFFFFF', shortName: 'Purim' },
 };

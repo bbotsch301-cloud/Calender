@@ -9,13 +9,9 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
-import { GoldText } from '../ui/GoldText';
-import { DarkCard } from '../ui/DarkCard';
 import { geocode, reverseGeocode, type GeocodeResult } from '../../engine/geocoding';
 import { useCalendarStore, type LocationMode } from '../../store/useCalendarStore';
 import { requestLocationPermission } from '../../hooks/useSunset';
-import { updateUserProfile } from '../../supabase/queries';
-import { useAuthStore } from '../../store/useAuthStore';
 
 const SEARCH_DEBOUNCE_MS = 500;
 const MIN_QUERY_LEN = 2;
@@ -26,8 +22,14 @@ const MODE_LABEL: Record<LocationMode, string> = {
   fallback: 'Default (Jerusalem)',
 };
 
+/**
+ * Profile/Settings widget for editing the app's location.
+ *
+ * Input accepts: "City", "City, State", "City, Country", a ZIP/postcode,
+ * or decimal "lat,lon". Nominatim handles the hard cases; the pure
+ * coordinate short-circuit lives in src/engine/geocoding.ts.
+ */
 export function LocationEditor(): React.ReactElement {
-  const userId = useAuthStore((s) => s.user?.id ?? null);
   const latitude = useCalendarStore((s) => s.latitude);
   const longitude = useCalendarStore((s) => s.longitude);
   const locationName = useCalendarStore((s) => s.locationName);
@@ -75,26 +77,7 @@ export function LocationEditor(): React.ReactElement {
     };
   }, [query]);
 
-  async function persistTo(profile: {
-    latitude: number;
-    longitude: number;
-    name: string | null;
-    mode: LocationMode;
-  }): Promise<void> {
-    if (!userId) return;
-    try {
-      await updateUserProfile(userId, {
-        latitude: profile.latitude,
-        longitude: profile.longitude,
-        locationName: profile.name,
-        locationMode: profile.mode,
-      });
-    } catch {
-      // Non-fatal: store has already updated; profile sync will retry later.
-    }
-  }
-
-  async function pick(result: GeocodeResult): Promise<void> {
+  function pick(result: GeocodeResult): void {
     setLocation(result.latitude, result.longitude, {
       name: result.shortName || result.displayName,
       mode: 'manual',
@@ -102,12 +85,6 @@ export function LocationEditor(): React.ReactElement {
     setQuery('');
     setResults([]);
     setError(null);
-    await persistTo({
-      latitude: result.latitude,
-      longitude: result.longitude,
-      name: result.shortName || result.displayName,
-      mode: 'manual',
-    });
   }
 
   async function onDetectGPS(): Promise<void> {
@@ -124,15 +101,8 @@ export function LocationEditor(): React.ReactElement {
         );
         return;
       }
-      // Best-effort reverse geocode for a friendly name.
       const name = await reverseGeocode(r.latitude, r.longitude);
       setLocation(r.latitude, r.longitude, { name, mode: 'gps' });
-      await persistTo({
-        latitude: r.latitude,
-        longitude: r.longitude,
-        name,
-        mode: 'gps',
-      });
     } catch {
       setError('Could not detect your location. Type a city above instead.');
     } finally {
@@ -140,25 +110,26 @@ export function LocationEditor(): React.ReactElement {
     }
   }
 
-  async function onResetToJerusalem(): Promise<void> {
+  function onResetToJerusalem(): void {
     markUsingFallback();
     setQuery('');
     setResults([]);
     setError(null);
-    await persistTo({
-      latitude: 31.7683,
-      longitude: 35.2137,
-      name: 'Jerusalem, Israel',
-      mode: 'fallback',
-    });
   }
 
   const isWeb = Platform.OS === 'web';
 
   return (
     <View>
-      {/* Resolved location card */}
-      <DarkCard bordered borderColor={locationMode === 'manual' || locationMode === 'gps' ? Colors.gold : Colors.border}>
+      {/* Resolved-location card */}
+      <View
+        style={{
+          backgroundColor: Colors.surface,
+          borderWidth: 1,
+          borderColor: locationMode === 'fallback' ? Colors.border : Colors.gold,
+          borderRadius: 12,
+          padding: 14,
+        }}>
         <Text
           style={{
             color: Colors.textMuted,
@@ -169,27 +140,22 @@ export function LocationEditor(): React.ReactElement {
           }}>
           Current Location · {MODE_LABEL[locationMode]}
         </Text>
-        <GoldText size="lg" weight="bold" style={{ marginTop: 6 }}>
+        <Text
+          style={{
+            color: Colors.gold,
+            fontSize: 16,
+            fontWeight: '700',
+            marginTop: 6,
+          }}>
           {locationName ?? 'No name available'}
-        </GoldText>
+        </Text>
         <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>
           {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
         </Text>
-      </DarkCard>
+      </View>
 
-      {/* Search input + results */}
+      {/* Search */}
       <View style={{ marginTop: 14 }}>
-        <Text
-          style={{
-            color: Colors.textMuted,
-            fontSize: 11,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
-            marginBottom: 6,
-            fontWeight: '700',
-          }}>
-          {isWeb ? 'Type a city, ZIP, or "lat,lon"' : 'Search by city, ZIP, or "lat,lon"'}
-        </Text>
         <View
           style={{
             flexDirection: 'row',
@@ -204,7 +170,7 @@ export function LocationEditor(): React.ReactElement {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder={isWeb ? 'e.g. Dallas, TX' : 'e.g. Jerusalem'}
+            placeholder={'City, State or Zip Code or lat,lon'}
             placeholderTextColor={Colors.textDim}
             autoCapitalize="words"
             autoCorrect={false}
@@ -232,7 +198,6 @@ export function LocationEditor(): React.ReactElement {
           ) : null}
         </View>
 
-        {/* Inline result list */}
         {results.length > 0 && (
           <View
             style={{
@@ -260,7 +225,9 @@ export function LocationEditor(): React.ReactElement {
                     paddingHorizontal: 14,
                     backgroundColor: pressed ? 'rgba(201,168,76,0.10)' : 'transparent',
                   })}>
-                  <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>
+                  <Text
+                    style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}
+                    numberOfLines={1}>
                     {item.shortName}
                   </Text>
                   <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>
@@ -278,7 +245,7 @@ export function LocationEditor(): React.ReactElement {
         )}
       </View>
 
-      {/* GPS Detect button — secondary on web, equal weight on native */}
+      {/* GPS Detect button — secondary */}
       <View style={{ marginTop: 14, gap: 8 }}>
         <Pressable
           onPress={onDetectGPS}
@@ -311,7 +278,7 @@ export function LocationEditor(): React.ReactElement {
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
-            {detecting ? 'Detecting…' : isWeb ? 'Or detect via browser GPS' : 'Detect my location'}
+            {detecting ? 'Detecting…' : 'Use my current location'}
           </Text>
         </Pressable>
 

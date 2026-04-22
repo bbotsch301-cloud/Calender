@@ -13,7 +13,7 @@ describe('omer', () => {
     for (const y of [2024, 2025, 2026]) {
       const f = computeFeastsForYear(y);
       const ff = f.find((x) => x.key === 'firstfruits')!;
-      const pent = f.find((x) => x.key === 'pentecost')!;
+      const pent = f.find((x) => x.key === 'shavuot')!;
       const w = getOmerWindow(y);
       expect(w.start.toDateString()).toBe(ff.startDate.toDateString());
       expect(pent.startDate.getTime() - w.end.getTime()).toBe(86_400_000);

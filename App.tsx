@@ -1,22 +1,26 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { RootNavigator } from './src/navigation/RootNavigator';
-import { DayTransitionToast } from './src/components/shared/DayTransitionToast';
-import { NetworkBanner } from './src/components/shared/NetworkBanner';
+import { AppNavigator } from './src/navigation/AppNavigator';
 import { ErrorBoundary } from './src/components/shared/ErrorBoundary';
+import { useCalendarStore } from './src/store/useCalendarStore';
+import { useSettingsStore } from './src/store/useSettingsStore';
 
 export default function App(): React.ReactElement {
+  // Hydrate persisted state from AsyncStorage once on mount.
+  useEffect(() => {
+    useCalendarStore.getState().hydrate();
+    useSettingsStore.getState().hydrate();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
         <ErrorBoundary>
-          <RootNavigator />
+          <AppNavigator />
         </ErrorBoundary>
-        <NetworkBanner />
-        <DayTransitionToast />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
