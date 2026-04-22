@@ -1,0 +1,82 @@
+# Render Blueprint for Kingdom Calendar (Expo web static export).
+#
+# Deploy: Render dashboard → New + → Blueprint → connect the GitHub repo
+# and select this file. Render will create the static site, apply the
+# headers below, and run the build command.
+#
+# Env vars marked `sync: false` must be filled in on the Render dashboard
+# after the blueprint lands. See SETUP.md § "Deploying to Render" for the
+# exact names and what they mean.
+
+services:
+  - type: web
+    name: kingdom-calendar
+    runtime: static
+    # `npm ci` is stricter & faster than `npm install` when a lockfile
+    # is present. `--legacy-peer-deps` is required because React Native
+    # still publishes optimistic peerDependency ranges that npm 9+ rejects.
+    buildCommand: npm ci --legacy-peer-deps && npx expo export --platform web
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+
+    # SPA fallback: React Navigation owns client-side routing, so every
+    # non-asset URL must serve index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    headers:
+      # Security baseline
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: "geolocation=(self), camera=(), microphone=(), payment=()"
+      - path: /*
+        name: Strict-Transport-Security
+        value: "max-age=63072000; includeSubDomains; preload"
+      # Content Security Policy — note `unsafe-inline` + `unsafe-eval` are
+      # required by Expo/Metro's runtime bundle; this matches what React
+      # Native for Web apps ship in production.
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://api.anthropic.com https://*.anthropic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self' blob:"
+
+      # Long-cache for fingerprinted bundles, no-cache for the HTML shell.
+      - path: /_expo/*
+        name: Cache-Control
+        value: "public, max-age=31536000, immutable"
+      - path: /assets/*
+        name: Cache-Control
+        value: "public, max-age=31536000, immutable"
+      - path: /*.html
+        name: Cache-Control
+        value: "public, max-age=0, must-revalidate"
+
+    envVars:
+      # Node 20 is the current LTS — pinned to avoid Render bumping under us.
+      - key: NODE_VERSION
+        value: "20"
+
+      # Supabase — paste the values from your Supabase project dashboard.
+      # Recommended but not required: the app runs in full guest/local
+      # mode when these are missing or left at their placeholder values.
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+
+      # Optional — production path for AI-augmented "Meaning of Today".
+      # Point at a proxy you control that forwards to api.anthropic.com
+      # with your real API key attached server-side. If unset, the app
+      # silently falls back to offline curated reflections.
+      - key: EXPO_PUBLIC_ANTHROPIC_PROXY_URL
+        sync: false

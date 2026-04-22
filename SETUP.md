@@ -136,6 +136,88 @@ supabase/
 └── migrations/001_initial_schema.sql
 ```
 
+## Deploying to Render (static site)
+
+The repo ships with `render.yaml` — a Blueprint that stands up Kingdom
+Calendar as a hardened static site on Render. The app's Expo web target
+builds a single-file bundle; React Navigation owns client-side routing,
+so every non-asset path rewrites to `index.html`.
+
+### One-time setup
+
+1. Push this branch to GitHub (already done if you pulled this repo from
+   a Claude session — the remote is wired).
+2. In the Render dashboard, click **New +** → **Blueprint** → connect
+   the GitHub repo → select the branch. Render reads `render.yaml` and
+   creates a service named **kingdom-calendar** of type Static Site.
+3. Fill in the three env vars (marked `sync: false` in the YAML) on the
+   service's Environment page — see the table below. Trigger a deploy.
+
+Build command (already set by the blueprint):
+
+```
+npm ci --legacy-peer-deps && npx expo export --platform web
+```
+
+Publish directory: `./dist`.
+
+### Environment variables
+
+Set these in **Render dashboard → your service → Environment**.
+
+| Variable | Required? | Value |
+|---|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | Recommended (app runs in guest/local mode without it) | `https://YOUR-PROJECT.supabase.co` — from Supabase → Project Settings → API → **Project URL** |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Recommended | The `anon` `public` key from Supabase → Project Settings → API → **Project API keys** |
+| `EXPO_PUBLIC_ANTHROPIC_PROXY_URL` | Optional | URL of a server you control that proxies to `https://api.anthropic.com/v1/messages` with your API key attached server-side. If unset, Meaning of Today falls back to offline curated text — no errors surfaced to the user. |
+| `NODE_VERSION` | Pre-filled by the blueprint | `20` — Node 20 LTS. Don't change unless you know why. |
+
+**Do NOT** set `EXPO_PUBLIC_ANTHROPIC_API_KEY` on the production service:
+the AI service layer refuses the direct-to-Anthropic path outside
+`__DEV__`, because any client-side key is readable by anyone who opens
+devtools. Use the proxy URL instead.
+
+### Security posture
+
+The Blueprint applies the following headers to every response:
+
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+- `Content-Security-Policy` — locked-down CSP that only allows
+  connecting to `*.supabase.co`, `*.supabase.in`, and
+  `api.anthropic.com` / `*.anthropic.com`.
+- `X-Frame-Options: DENY` + `frame-ancestors 'none'` (no iframe embedding)
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy` — geolocation allowed (sunset calc); camera,
+  microphone, payment blocked.
+
+Fingerprinted bundles under `/_expo/*` and `/assets/*` are served with
+`Cache-Control: public, max-age=31536000, immutable`; the HTML shell is
+`must-revalidate` so deploys propagate instantly.
+
+### Diagnosing a Bad Gateway
+
+If the deployed service returns 502:
+
+1. Check the **Logs** tab — look for a failed build step. The most
+   common cause is stale lockfile mismatches; `npm ci --legacy-peer-deps`
+   in the blueprint avoids this.
+2. Confirm `staticPublishPath: ./dist` matches the Expo export output.
+   If the build succeeded but Render can't find files, the build
+   command silently exited 0 without populating `dist/`.
+3. Verify the service type is **Static Site**, not **Web Service**.
+   Static sites serve files; Web Services expect an HTTP server.
+
+### Running the same build locally
+
+```bash
+npm ci --legacy-peer-deps
+npx expo export --platform web
+npx serve dist   # or any static-file server
+```
+
+Open the URL → you should see the dark Kingdom Calendar onboarding.
+
 ## Security
 
 - **Encrypted session storage.** Supabase auth persistence lives in

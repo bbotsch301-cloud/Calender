@@ -33,7 +33,18 @@
         "USE_FINGERPRINT"
       ]
     },
-    "web": {},
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Kingdom Calendar",
+      "shortName": "Kingdom Calendar",
+      "description": "A spiritually immersive biblical Hebrew calendar alignment app.",
+      "themeColor": "#0A0A0F",
+      "backgroundColor": "#0A0A0F",
+      "display": "standalone",
+      "orientation": "portrait",
+      "lang": "en"
+    },
     "plugins": [
       [
         "expo-notifications",
