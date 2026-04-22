@@ -61,10 +61,12 @@ export function FeastCard({ feast, onPress, highlighted }: Props) {
               }}>
               {feast.leviticusRef}
             </Text>
-            <Text style={{ color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: 0.3 }}>
+            <Text
+              numberOfLines={1}
+              style={{ color: Colors.text, fontSize: 18, fontWeight: '700', letterSpacing: 0.3 }}>
               {feast.name}
             </Text>
-            <GoldText size="base" weight="semibold" style={{ marginTop: 2 }}>
+            <GoldText size="base" weight="semibold" style={{ marginTop: 2 }} numberOfLines={1}>
               {feast.hebrewName}
             </GoldText>
             <Text

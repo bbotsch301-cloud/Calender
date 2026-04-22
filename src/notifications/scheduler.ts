@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { calculateSunset, JERUSALEM_LAT, JERUSALEM_LON } from '../engine/sunset';
 import { isErevShabbat, getNextSabbath } from '../engine/sabbath';
+import { getOmerWindow, getOmerDay } from '../engine/omer';
 import type { Feast } from '../engine/feasts';
 import type { UserPreferences } from '../types/user.types';
 
@@ -114,6 +115,37 @@ export async function scheduleAllNotifications(
             data: { type: 'feast_start', feastKey: f.key },
           },
           trigger: startSunset as unknown as Notifications.NotificationTriggerInput,
+        });
+        count++;
+      }
+    }
+  }
+
+  // === Omer daily-morning reminder (during counting period only) ===
+  // Schedule one DATE-triggered notification per remaining Omer day, at
+  // 8am local. Safer than a single recurring trigger because each day
+  // has its own counted-day body ("Count day X") and naturally stops
+  // when the window ends.
+  if (ctx.preferences.dailyCheckinEnabled) {
+    const now = new Date();
+    for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
+      const win = getOmerWindow(y);
+      if (win.end.getTime() < now.getTime()) continue;
+      for (let d = new Date(win.start); d.getTime() <= win.end.getTime(); d.setDate(d.getDate() + 1)) {
+        const day = getOmerDay(d);
+        if (!day) continue;
+        const triggerDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8, 0, 0);
+        if (triggerDate.getTime() <= now.getTime()) continue;
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `Day ${day} of the Omer`,
+            body:
+              day === 49
+                ? 'The final day of the count — tomorrow is Pentecost. Tap to count.'
+                : `Count day ${day} of 49. Tap to mark it.`,
+            data: { type: 'omer_reminder', omerDay: day },
+          },
+          trigger: triggerDate as unknown as Notifications.NotificationTriggerInput,
         });
         count++;
       }

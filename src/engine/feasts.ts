@@ -80,7 +80,25 @@ function findFirstfruits(hebrewYear: number): Date {
   return d;
 }
 
+// Module-level cache: the calculation is deterministic and small. A Map
+// bounded to the most recent ~20 years keeps memory fixed while avoiding
+// repeated Hebrew↔Gregorian conversions on every render.
+const FEAST_CACHE = new Map<number, Feast[]>();
+const FEAST_CACHE_MAX = 25;
+
 export function computeFeastsForYear(gregYear: number): Feast[] {
+  const cached = FEAST_CACHE.get(gregYear);
+  if (cached) return cached;
+  const result = computeFeastsForYearUncached(gregYear);
+  if (FEAST_CACHE.size >= FEAST_CACHE_MAX) {
+    const firstKey = FEAST_CACHE.keys().next().value;
+    if (firstKey !== undefined) FEAST_CACHE.delete(firstKey);
+  }
+  FEAST_CACHE.set(gregYear, result);
+  return result;
+}
+
+function computeFeastsForYearUncached(gregYear: number): Feast[] {
   const springYear = findHebrewYearForSpring(gregYear);
   const fallYear = findHebrewYearForFall(gregYear);
 

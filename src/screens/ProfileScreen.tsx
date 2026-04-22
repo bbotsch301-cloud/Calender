@@ -30,6 +30,7 @@ export function ProfileScreen() {
     useAlignment();
   const setLocation = useCalendarStore((s) => s.setLocation);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,12 +70,15 @@ export function ProfileScreen() {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
+            setResetting(true);
             try {
               await resetAlignment(user.id);
-              useAlignmentStore.getState().fetchStats();
+              await useAlignmentStore.getState().fetchStats();
               Alert.alert('Reset complete', 'Your alignment has been cleared.');
             } catch {
               Alert.alert('Could not reset', 'Try again when you are online.');
+            } finally {
+              setResetting(false);
             }
           },
         },
@@ -248,8 +252,10 @@ export function ProfileScreen() {
 
           <Pressable
             onPress={onResetAlignment}
+            disabled={resetting}
             accessibilityRole="button"
             accessibilityLabel="Reset my alignment data"
+            accessibilityState={{ disabled: resetting, busy: resetting }}
             style={({ pressed }) => ({
               padding: 14,
               borderRadius: 12,
@@ -257,10 +263,10 @@ export function ProfileScreen() {
               borderWidth: 1,
               borderColor: Colors.border,
               alignItems: 'center',
-              opacity: pressed ? 0.85 : 1,
+              opacity: pressed || resetting ? 0.7 : 1,
             })}>
             <Text style={{ color: Colors.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }}>
-              Reset My Alignment
+              {resetting ? 'Resetting…' : 'Reset My Alignment'}
             </Text>
           </Pressable>
 

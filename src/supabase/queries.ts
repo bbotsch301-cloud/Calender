@@ -49,21 +49,47 @@ export async function getCalendarDay(date: Date): Promise<{
 }
 
 /**
- * Duplicate-activity key: `sabbath`, `feast`, `checkin`, `scripture`, and
- * `fast` are deduplicated per calendar day. `omer_count` is deduplicated
- * per (date + notes) since the notes encode the day number. `feast` is
- * additionally deduplicated by feast key so two feasts on the same day
- * each count once.
+ * Duplicate-activity key: `feast`, `checkin`, `scripture`, and `fast` are
+ * deduplicated per calendar day. `omer_count` is deduplicated per (date
+ * + notes) since the notes encode the day number. `sabbath` is special-
+ * cased: a sabbath logged Friday evening and again Saturday morning
+ * represents the same biblical sabbath, so we snap the date to the
+ * Saturday of that sabbath-week before hashing.
  */
 function dedupeKey(
   type: ActivityType,
   date: Date,
   metadata?: { feastKey?: string; notes?: string }
 ): string {
+  if (type === 'sabbath') {
+    const saturday = snapToSaturday(date);
+    const satKey = saturday.toISOString().split('T')[0];
+    return `sabbath:${satKey}`;
+  }
   const dayKey = date.toISOString().split('T')[0];
   if (type === 'feast') return `feast:${dayKey}:${metadata?.feastKey ?? ''}`;
   if (type === 'omer_count') return `omer_count:${dayKey}:${metadata?.notes ?? ''}`;
   return `${type}:${dayKey}`;
+}
+
+/**
+ * Given any date, returns the Saturday that anchors that sabbath-week.
+ * Fri/Sat/Sun are all considered part of the biblical sabbath window:
+ *   - Friday → following Saturday
+ *   - Saturday → that Saturday
+ *   - Sunday → previous Saturday (handles "Saturday night, after havdalah"
+ *     edge cases where a user logs on Sunday morning by mistake)
+ * Any other day snaps to that week's Saturday.
+ */
+function snapToSaturday(date: Date): Date {
+  const dow = date.getDay();
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  let delta: number;
+  if (dow === 6) delta = 0;
+  else if (dow === 0) delta = -1; // Sunday → previous Saturday
+  else delta = 6 - dow; // forward to Saturday of this week
+  result.setDate(result.getDate() + delta);
+  return result;
 }
 
 export async function logActivity(

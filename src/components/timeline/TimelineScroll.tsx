@@ -64,6 +64,10 @@ export function TimelineScroll({ feasts, currentDate, onFeastPress }: Props) {
         data={items}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 24, alignItems: 'flex-start', gap: 4 }}
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        removeClippedSubviews
         keyExtractor={(item, i) => (item.kind === 'now' ? `now-${i}` : `f-${item.feast.key}-${item.feast.startDate.toISOString()}`)}
         renderItem={({ item }) => {
           if (item.kind === 'now') {
