@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 import { Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { gregorianToHebrew } from '../../engine/hebrewCalendar';
-import { isRoshChodesh, isSabbath } from '../../engine/sabbath';
+import { isRoshChodesh } from '../../engine/sabbath';
 import { getFeastDayNumber, getFeastsForMonthRange, type Feast } from '../../engine/feasts';
 import { getOmerDay } from '../../engine/omer';
-import { getMoonPhase } from '../../engine/moonPhase';
+import { getMoonPhase, type MoonPhaseIndex } from '../../engine/moonPhase';
 import { DayCell, type DayCellData } from './DayCell';
 
 interface Props {
@@ -18,6 +18,9 @@ interface Props {
 
 const DAY_LETTERS_SUN_FIRST = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const DAY_LETTERS_SAT_FIRST = ['S', 'S', 'M', 'T', 'W', 'T', 'F'];
+
+/** Only the four quarter phases surface in the grid; crescents/gibbous hide. */
+const QUARTER_PHASES: ReadonlySet<MoonPhaseIndex> = new Set<MoonPhaseIndex>([0, 2, 4, 6]);
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -33,21 +36,19 @@ function findFeastFor(date: Date, feasts: Feast[]): Feast | null {
   return null;
 }
 
-export function MonthGrid({ year, month, weekStartSunday, onDayPress }: Props): React.ReactElement {
-  // `today` used only for the today-ring — snapping to start-of-day keeps
-  // the comparison stable across a re-render that straddles midnight.
+export function MonthGrid({
+  year,
+  month,
+  weekStartSunday,
+  onDayPress,
+}: Props): React.ReactElement {
   const today = useMemo(() => startOfDay(new Date()), []);
-
   const feasts = useMemo(() => getFeastsForMonthRange(year), [year]);
 
   const { weekdayHeaders, rows } = useMemo(() => {
-    // Build the 6-row × 7-col grid starting either Sunday or Saturday.
     const first = new Date(year, month, 1);
-    const firstDow = first.getDay(); // 0 = Sunday
-    // offset = number of blank-or-prev-month cells before day 1
-    const offset = weekStartSunday
-      ? firstDow
-      : (firstDow + 1) % 7; // Saturday first → Saturday is column 0
+    const firstDow = first.getDay();
+    const offset = weekStartSunday ? firstDow : (firstDow + 1) % 7;
     const gridStart = new Date(year, month, 1 - offset);
 
     const rows: DayCellData[][] = [];
@@ -60,10 +61,9 @@ export function MonthGrid({ year, month, weekStartSunday, onDayPress }: Props): 
         const feast = findFeastFor(d, feasts);
         const feastDayNumber = feast ? getFeastDayNumber(d, feast) : null;
         const omer = getOmerDay(d);
-        // Sample moon phase at noon local — stable within a cell, avoids
-        // the pre-dawn edge where the phase emoji might flip mid-hour.
         const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
         const moon = getMoonPhase(noon);
+        const isQuarter = QUARTER_PHASES.has(moon.phase);
         row.push({
           date: d,
           gregorianDay: d.getDate(),
@@ -76,7 +76,7 @@ export function MonthGrid({ year, month, weekStartSunday, onDayPress }: Props): 
           feast,
           feastDayNumber,
           omerDay: omer,
-          moonEmoji: moon.emoji,
+          moonEmoji: isQuarter ? moon.emoji : '',
           moonPhaseName: moon.name,
         });
       }
@@ -87,64 +87,48 @@ export function MonthGrid({ year, month, weekStartSunday, onDayPress }: Props): 
     return { weekdayHeaders, rows };
   }, [year, month, weekStartSunday, today, feasts]);
 
-  // Which column index holds Saturday (for the tint).
   const saturdayColIndex = weekStartSunday ? 6 : 0;
 
   return (
     <View>
-      {/* Weekday headers */}
+      {/* Weekday headers — Saturday gets the full "Shabbat" label in purple */}
       <View style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 6 }}>
-        {weekdayHeaders.map((letter, idx) => (
-          <View
-            key={`hdr-${idx}`}
-            style={{
-              flex: 1,
-              alignItems: 'center',
-              paddingVertical: 8,
-              backgroundColor:
-                idx === saturdayColIndex ? Colors.shabbatColumnTint : 'transparent',
-              borderTopLeftRadius: idx === saturdayColIndex ? 8 : 0,
-              borderTopRightRadius: idx === saturdayColIndex ? 8 : 0,
-            }}>
-            <Text
+        {weekdayHeaders.map((letter, idx) => {
+          const isSat = idx === saturdayColIndex;
+          return (
+            <View
+              key={`hdr-${idx}`}
               style={{
-                color: idx === saturdayColIndex ? Colors.goldLight : Colors.textMuted,
-                fontSize: 12,
-                fontWeight: '700',
-                letterSpacing: 2,
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 8,
+                backgroundColor: isSat ? Colors.shabbatColumnTint : 'transparent',
+                borderTopLeftRadius: isSat ? 8 : 0,
+                borderTopRightRadius: isSat ? 8 : 0,
               }}>
-              {letter}
-            </Text>
-          </View>
-        ))}
+              <Text
+                numberOfLines={1}
+                style={{
+                  color: isSat ? Colors.shabbatLabel : Colors.textMuted,
+                  fontSize: isSat ? 10 : 12,
+                  fontWeight: '700',
+                  letterSpacing: isSat ? 1 : 2,
+                  textTransform: isSat ? 'uppercase' : 'none',
+                }}>
+                {isSat ? 'Shabbat' : letter}
+              </Text>
+            </View>
+          );
+        })}
       </View>
 
-      {/* Day rows */}
-      <View
-        style={{
-          position: 'relative',
-          paddingHorizontal: 4,
-        }}>
-        {/* Saturday column tint spanning all 6 rows */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: `${(100 / 7) * saturdayColIndex}%`,
-            width: `${100 / 7}%`,
-            backgroundColor: Colors.shabbatColumnTint,
-          }}
-        />
+      {/* Day rows — column tint now lives per-cell in DayCell, so we no
+          longer paint a single vertical bar underneath the cells. */}
+      <View style={{ paddingHorizontal: 4 }}>
         {rows.map((row, rIdx) => (
           <View key={`row-${rIdx}`} style={{ flexDirection: 'row', gap: 2, marginBottom: 2 }}>
             {row.map((cell) => (
-              <DayCell
-                key={cell.date.toISOString()}
-                data={cell}
-                onPress={onDayPress}
-              />
+              <DayCell key={cell.date.toISOString()} data={cell} onPress={onDayPress} />
             ))}
           </View>
         ))}

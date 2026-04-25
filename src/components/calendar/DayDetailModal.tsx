@@ -216,7 +216,7 @@ export function DayDetailModal({ date, onClose }: Props): React.ReactElement {
                       />
                     )}
                     {detail.isSabbath && (
-                      <Badge label="Shabbat" bg={Colors.shabbatBadge} fg="#FFFFFF" />
+                      <Badge label="Shabbat" bg={Colors.shabbatStripe} fg="#FFFFFF" />
                     )}
                     {detail.isRoshChodesh && (
                       <Badge label="🌒 Rosh Chodesh" bg="rgba(201,168,76,0.15)" fg={Colors.gold} />

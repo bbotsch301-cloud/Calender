@@ -25,6 +25,17 @@ export function SettingsScreen(): React.ReactElement {
 
         {/* Location */}
         <Section title="Location for Sunset Times">
+          <Text
+            style={{
+              color: Colors.textMuted,
+              fontSize: 11,
+              fontStyle: 'italic',
+              lineHeight: 17,
+              marginBottom: 12,
+            }}>
+            Your location is used to calculate the exact local sunset time, which determines
+            when each biblical day begins.
+          </Text>
           <LocationEditor />
         </Section>
 

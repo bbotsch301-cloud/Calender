@@ -1,7 +1,7 @@
 export const Colors = {
   background: '#0D0D0F',
   surface: '#15151A',
-  surfaceElev: '#1E1E25',
+  surfaceElev: '#1A1A2E',
   gold: '#C9A84C',
   goldLight: '#E8C97A',
   goldDark: '#8B7232',
@@ -12,8 +12,18 @@ export const Colors = {
   success: '#65A30D',
   error: '#DC2626',
   warning: '#F59E0B',
-  shabbatColumnTint: 'rgba(100, 80, 180, 0.12)',
-  shabbatBadge: '#6D5CC4',
+  /** Saturday-column background tint for non-feast Shabbats. */
+  shabbatColumnTint: 'rgba(107,79,160,0.12)',
+  /** Saturday-column background tint on days that are both feast + Shabbat. */
+  shabbatColumnTintFeast: 'rgba(107,79,160,0.18)',
+  /** Left-stripe color for plain (non-feast) Shabbat days. */
+  shabbatStripe: '#6B4FA0',
+  /** Header/inline "Shabbat" label color. */
+  shabbatLabel: '#9B72CF',
+  /** Dim inline "Shabbat" note color used inside feast+Shabbat cells. */
+  shabbatInline: '#8E6FC0',
+  /** Left-stripe color for Rosh Chodesh days (no overriding feast). */
+  roshChodeshStripe: '#14B8A6',
   overlay: 'rgba(10, 10, 15, 0.85)',
   modalBackdrop: 'rgba(0, 0, 0, 0.65)',
 } as const;

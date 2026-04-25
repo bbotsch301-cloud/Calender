@@ -17,6 +17,21 @@
  * have no platform dependency and are covered by unit tests.
  */
 
+/**
+ * Collapse Nominatim's verbose `display_name` — which often has 5–7
+ * comma-separated levels — down to the first two parts (locality +
+ * region) so the UI can show "Phoenix, Arizona" rather than a long
+ * breadcrumb.
+ */
+export function shortDisplayName(displayName: string): string {
+  return displayName
+    .split(',')
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0)
+    .slice(0, 2)
+    .join(', ');
+}
+
 export interface GeocodeResult {
   /** Full display name, e.g. "Jerusalem, Jerusalem District, Israel". */
   displayName: string;

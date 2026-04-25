@@ -9,7 +9,12 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../../constants/colors';
-import { geocode, reverseGeocode, type GeocodeResult } from '../../engine/geocoding';
+import {
+  geocode,
+  reverseGeocode,
+  shortDisplayName,
+  type GeocodeResult,
+} from '../../engine/geocoding';
 import { useCalendarStore, type LocationMode } from '../../store/useCalendarStore';
 import { requestLocationPermission } from '../../hooks/useSunset';
 
@@ -78,8 +83,14 @@ export function LocationEditor(): React.ReactElement {
   }, [query]);
 
   function pick(result: GeocodeResult): void {
+    // Prefer the first two comma-separated parts of Nominatim's
+    // display_name (e.g. "Phoenix, Arizona") — concise and recognizable.
+    const label =
+      result.source === 'nominatim'
+        ? shortDisplayName(result.displayName) || result.shortName
+        : result.shortName || result.displayName;
     setLocation(result.latitude, result.longitude, {
-      name: result.shortName || result.displayName,
+      name: label,
       mode: 'manual',
     });
     setQuery('');
@@ -147,9 +158,11 @@ export function LocationEditor(): React.ReactElement {
             fontWeight: '700',
             marginTop: 6,
           }}>
-          {locationName ?? 'No name available'}
+          {locationName && locationName.trim().length > 0 && locationName !== 'No name available'
+            ? locationName
+            : 'Location detected'}
         </Text>
-        <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>
+        <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>
           {latitude.toFixed(4)}°, {longitude.toFixed(4)}°
         </Text>
       </View>

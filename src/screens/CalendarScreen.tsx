@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Colors } from '../constants/colors';
 import { MonthGrid } from '../components/calendar/MonthGrid';
 import { DayDetailModal } from '../components/calendar/DayDetailModal';
+import { LegendBar } from '../components/calendar/LegendBar';
 import { gregorianToHebrew } from '../engine/hebrewCalendar';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useCalendarStore } from '../store/useCalendarStore';
@@ -135,6 +136,9 @@ export function CalendarScreen(): React.ReactElement {
           <NavButton label="›" onPress={nextMonth} a11y="Next month" />
         </View>
       </View>
+
+      {/* Color legend — horizontally scrollable under the header. */}
+      <LegendBar />
 
       {/* Location-missing banner (session-only dismiss) */}
       {showLocationBanner && (
