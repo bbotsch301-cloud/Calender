@@ -28,41 +28,50 @@ const LEGEND_CHIPS: LegendChip[] = [
 ];
 
 export function LegendBar(): React.ReactElement {
+  // Wrap in a fixed-size View so the ScrollView can't stretch to fill
+  // the column-flex parent. Without this the wrapper grew to ~400px and
+  // pushed the day grid down by ~40% of the viewport.
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        gap: 10,
-        alignItems: 'center',
-      }}
-      style={{ backgroundColor: 'transparent' }}>
-      {LEGEND_CHIPS.map((chip) => (
-        <View
-          key={chip.label}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+    <View style={{ flexGrow: 0, flexShrink: 0, height: 24 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          gap: 10,
+          alignItems: 'center',
+        }}
+        style={{
+          flexGrow: 0,
+          flexShrink: 0,
+          backgroundColor: 'transparent',
+        }}>
+        {LEGEND_CHIPS.map((chip) => (
           <View
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: 3,
-              backgroundColor: chip.color,
-            }}
-          />
-          <Text
-            numberOfLines={1}
-            style={{
-              color: Colors.textMuted,
-              fontSize: 9,
-              fontWeight: '600',
-              letterSpacing: 0.3,
-            }}>
-            {chip.label}
-          </Text>
-        </View>
-      ))}
-    </ScrollView>
+            key={chip.label}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 3,
+                backgroundColor: chip.color,
+              }}
+            />
+            <Text
+              numberOfLines={1}
+              style={{
+                color: Colors.textMuted,
+                fontSize: 9,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              }}>
+              {chip.label}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
   );
 }

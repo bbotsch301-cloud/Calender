@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Colors, FeastPillColors } from '../constants/colors';
@@ -106,28 +106,28 @@ export function TodayScreen(): React.ReactElement {
             {GREG_WEEKDAYS[today.getDay()]}, {today.getDate()} {GREG_MONTHS[today.getMonth()]}{' '}
             {today.getFullYear()}
           </Text>
-          <Pressable
+          <TouchableOpacity
             onPress={() =>
               navigation.navigate('Learn', {
                 screen: 'MonthDetail',
                 params: { monthNumber: hebrew.month },
               })
             }
+            activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel={`Learn about the Hebrew month ${hebrew.monthName}`}
-            style={({ pressed }) => ({
+            style={{
               marginTop: 6,
-              paddingVertical: 2,
-              opacity: pressed ? 0.7 : 1,
+              paddingVertical: 4,
               alignSelf: 'flex-start',
-            })}>
+            }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
               <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>
                 {hebrew.day} {hebrew.monthName} {hebrew.year}
               </Text>
               <Text style={{ color: Colors.textMuted, fontSize: 12 }}>↗</Text>
             </View>
-          </Pressable>
+          </TouchableOpacity>
           <Text
             style={{
               color: Colors.gold,
@@ -222,12 +222,15 @@ export function TodayScreen(): React.ReactElement {
           )}
         </Card>
 
-        {/* Card 3 — PARASHA */}
-        <Pressable
+        {/* Card 3 — PARASHA (TouchableOpacity wraps the Card so the
+            entire surface — title, name, even "Tap to read →" — fires
+            the modal open). */}
+        <TouchableOpacity
           onPress={() => setParashaModalOpen(true)}
+          activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel={`View details for parasha ${parasha.parasha.name}`}>
-          <Card pressable>
+          <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={{ fontSize: 14 }}>📖</Text>
               <CardLabel>This Week's Torah Portion</CardLabel>
@@ -278,7 +281,7 @@ export function TodayScreen(): React.ReactElement {
               Tap to read →
             </Text>
           </Card>
-        </Pressable>
+        </TouchableOpacity>
 
         {/* Card 4 — MOON PHASE */}
         <Card>
@@ -315,13 +318,7 @@ export function TodayScreen(): React.ReactElement {
 
 /* --- card primitives --- */
 
-function Card({
-  children,
-  pressable,
-}: {
-  children: React.ReactNode;
-  pressable?: boolean;
-}): React.ReactElement {
+function Card({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
     <View
       style={{
@@ -331,8 +328,7 @@ function Card({
         marginBottom: 12,
         borderWidth: 1,
         borderColor: 'rgba(201,168,76,0.15)',
-      }}
-      accessibilityRole={pressable ? undefined : undefined}>
+      }}>
       {children}
     </View>
   );

@@ -3,6 +3,28 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { LEARN_MONTHS, type LearnMonth } from '../../content/months-content';
 
+/**
+ * The month-content file uses camelCase keys (`unleavenedBread`,
+ * `omerCount`, …). The summary card renders them as a comma list, so
+ * we map to human-readable names. Lookup is lowercase-keyed because
+ * `key.toLowerCase()` is what callers compare against.
+ */
+const FEAST_DISPLAY_NAME: Record<string, string> = {
+  passover: 'Passover',
+  unleavenedbread: 'Unleavened Bread',
+  firstfruits: 'Firstfruits',
+  omercount: 'Counting of the Omer',
+  shavuot: 'Shavuot',
+  yomteruah: 'Yom Teruah',
+  yomkippur: 'Yom Kippur',
+  sukkot: 'Sukkot',
+  sheminiatzeret: 'Shemini Atzeret',
+  roshchodesh: 'Rosh Chodesh',
+  hanukkah: 'Hanukkah',
+  purim: 'Purim',
+  shabbat: 'Shabbat',
+};
+
 interface Props {
   onPressMonth: (monthNumber: number) => void;
 }
@@ -88,14 +110,16 @@ function MonthRow({
         <Text
           style={{
             color: Colors.gold,
-            fontSize: 11,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
-            fontWeight: '700',
+            fontSize: 12,
+            letterSpacing: 0.3,
+            fontWeight: '600',
             marginTop: 10,
           }}
           numberOfLines={1}>
-          Feasts: {month.feasts.join(', ')}
+          Feasts:{' '}
+          {month.feasts
+            .map((k) => FEAST_DISPLAY_NAME[k.toLowerCase()] ?? k)
+            .join(', ')}
         </Text>
       )}
     </Pressable>
