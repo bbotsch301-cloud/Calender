@@ -106,28 +106,29 @@ export function TodayScreen(): React.ReactElement {
             {GREG_WEEKDAYS[today.getDay()]}, {today.getDate()} {GREG_MONTHS[today.getMonth()]}{' '}
             {today.getFullYear()}
           </Text>
-          <TouchableOpacity
+          {/* Hebrew date — tappable via Text.onPress, the most reliable
+              click target on react-native-web. (TouchableOpacity nested
+              inside a Card View was not catching the tap.) */}
+          <Text
             onPress={() =>
               navigation.navigate('Learn', {
                 screen: 'MonthDetail',
                 params: { monthNumber: hebrew.month },
               })
             }
-            activeOpacity={0.7}
-            accessibilityRole="button"
+            accessibilityRole="link"
             accessibilityLabel={`Learn about the Hebrew month ${hebrew.monthName}`}
             style={{
-              marginTop: 6,
+              color: Colors.gold,
+              fontSize: 16,
+              fontWeight: '700',
+              marginTop: 8,
               paddingVertical: 4,
               alignSelf: 'flex-start',
             }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-              <Text style={{ color: Colors.gold, fontSize: 16, fontWeight: '700' }}>
-                {hebrew.day} {hebrew.monthName} {hebrew.year}
-              </Text>
-              <Text style={{ color: Colors.textMuted, fontSize: 12 }}>↗</Text>
-            </View>
-          </TouchableOpacity>
+            {hebrew.day} {hebrew.monthName} {hebrew.year}{' '}
+            <Text style={{ color: Colors.textMuted, fontSize: 12 }}>↗</Text>
+          </Text>
           <Text
             style={{
               color: Colors.gold,
